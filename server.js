@@ -3,7 +3,6 @@ const app = express();
 const PORT = process.env.PORT || 3000; // Utilise le port fourni ou 3000 par défaut
 const fetch = require('node-fetch');
 require('dotenv').config();
-const express = require('express');
 const cors = require('cors');
 
 const app = express();
