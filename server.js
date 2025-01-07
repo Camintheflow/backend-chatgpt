@@ -47,6 +47,7 @@ app.post("/api/chatgpt", async (req, res) => {
 
 
 // Démarrer le serveur
+const PORT = process.env.PORT || 3000; // Utilise le port fourni ou 3000 par défaut
 app.listen(PORT, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`);
 });
