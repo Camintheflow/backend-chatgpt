@@ -4,8 +4,6 @@ const PORT = process.env.PORT || 3000; // Utilise le port fourni ou 3000 par dé
 const fetch = require('node-fetch');
 require('dotenv').config();
 const cors = require('cors');
-
-const app = express();
 app.use(cors()); // Active CORS pour toutes les origines
 
 
