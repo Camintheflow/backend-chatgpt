@@ -4,10 +4,13 @@ const PORT = process.env.PORT || 3000; // Utilise le port fourni ou 3000 par dé
 const fetch = require('node-fetch');
 require('dotenv').config();
 
-
-
 // Middleware pour lire les données JSON envoyées par Shopify
 app.use(express.json());
+
+// Route pour tester si le serveur fonctionne
+app.get("/", (req, res) => {
+  res.send("Le serveur fonctionne correctement !");
+});
 
 app.post("/api/chatgpt", async (req, res) => {
   try {
@@ -22,8 +25,7 @@ app.post("/api/chatgpt", async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
- // Remplacez par votre clé OpenAI
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`, // Remplacez par votre clé OpenAI
       },
       body: JSON.stringify({
         model: "gpt-4-turbo",
@@ -45,9 +47,9 @@ app.post("/api/chatgpt", async (req, res) => {
   }
 });
 
-
 // Démarrer le serveur
 app.listen(PORT, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`);
 });
+
 
