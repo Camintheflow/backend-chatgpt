@@ -1,28 +1,27 @@
 const express = require("express");
 const app = express();
-const PORT = process.env.PORT || 3000; // Définit le port par défaut ou celui spécifié
+const PORT = process.env.PORT || 3000;
 const fetch = require("node-fetch");
 require("dotenv").config();
 const cors = require("cors");
 
-app.use(cors()); // Active CORS pour toutes les origines
-app.use(express.json()); // Permet de lire les données JSON
+app.use(cors());
+app.use(express.json());
 
-// Variable pour stocker les conversations utilisateur
 const conversations = {};
 
 app.post("/api/chatgpt", async (req, res) => {
   const { message, userId } = req.body;
 
-  // Vérifie que le champ 'message' est fourni
-  if (!message) {
-    return res.status(400).json({ error: "Le champ 'message' est requis." });
+  // Vérifie que 'message' et 'userId' sont présents
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ error: "Le champ 'message' est requis et doit être une chaîne." });
+  }
+  if (!userId || typeof userId !== "string") {
+    return res.status(400).json({ error: "Le champ 'userId' est requis et doit être une chaîne." });
   }
 
-  // Initialise une nouvelle conversation pour le userId si elle n'existe pas
-  if (!userId || typeof userId !== "string") {
-    return res.status(400).json({ error: "Un 'userId' valide est requis." });
-  }
+  // Initialise une nouvelle conversation si nécessaire
   if (!conversations[userId]) {
     conversations[userId] = [];
   }
@@ -31,9 +30,9 @@ app.post("/api/chatgpt", async (req, res) => {
   conversations[userId].push({ role: "user", content: message });
 
   try {
-    let fullResponse = ""; // Pour stocker la réponse complète
-    let hasMore = true; // Flag pour vérifier si des requêtes supplémentaires sont nécessaires
-    const maxTokensPerRequest = 300; // Nombre de tokens par requête
+    let fullResponse = "";
+    let hasMore = true;
+    const maxTokensPerRequest = 300;
 
     while (hasMore) {
       console.log("Envoi de la requête à OpenAI...");
@@ -59,16 +58,13 @@ app.post("/api/chatgpt", async (req, res) => {
 
       if (response.ok) {
         const aiMessage = data.choices[0].message;
-        conversations[userId].push(aiMessage); // Ajoute la réponse de l'IA à l'historique
-        fullResponse += aiMessage.content; // Concatène la réponse actuelle à la réponse complète
+        conversations[userId].push(aiMessage);
+        fullResponse += aiMessage.content;
 
-        // Vérifie si la réponse est complète ou doit continuer
         if (data.choices[0].finish_reason === "stop") {
-          hasMore = false; // La réponse est complète
+          hasMore = false;
         } else if (data.choices[0].finish_reason === "length") {
-          console.log("La réponse est tronquée, envoi d'une nouvelle requête...");
-        } else {
-          hasMore = false; // Par défaut, on considère la réponse comme complète
+          console.log("Réponse incomplète, envoi d'une nouvelle requête...");
         }
       } else {
         console.error("Erreur OpenAI :", data);
@@ -76,7 +72,6 @@ app.post("/api/chatgpt", async (req, res) => {
       }
     }
 
-    // Renvoie la réponse complète au frontend
     console.log("Réponse complète :", fullResponse);
     res.json({ role: "assistant", content: fullResponse });
   } catch (error) {
@@ -85,7 +80,7 @@ app.post("/api/chatgpt", async (req, res) => {
   }
 });
 
-// Démarre le serveur
 app.listen(PORT, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`);
 });
+
