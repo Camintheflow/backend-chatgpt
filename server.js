@@ -23,7 +23,7 @@ app.get("/", (req, res) => {
   res.send("Bienvenue sur l'API ChatGPT !");
 });
 
-// Route pour gérer les requêtes à ChatGPT
+// Route pour gérer les requêtes à ChatGPT avec streaming
 app.post("/api/chatgpt", async (req, res) => {
   const { message, userId } = req.body;
 
@@ -35,6 +35,10 @@ app.post("/api/chatgpt", async (req, res) => {
     conversations[userId] = [];
   }
   conversations[userId].push({ role: "user", content: message });
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
 
   try {
     let fullResponse = "";
@@ -67,6 +71,9 @@ app.post("/api/chatgpt", async (req, res) => {
         conversations[userId].push(aiMessage);
         fullResponse += aiMessage.content;
 
+        // Envoi des parties de la réponse via le flux
+        res.write(`data: ${JSON.stringify({ content: aiMessage.content })}\n\n`);
+
         if (data.choices[0].finish_reason === "stop") {
           hasMore = false;
         } else if (data.choices[0].finish_reason === "length") {
@@ -74,15 +81,18 @@ app.post("/api/chatgpt", async (req, res) => {
         }
       } else {
         console.error("Erreur OpenAI :", data);
-        return res.status(response.status).send(data);
+        res.write(`data: ${JSON.stringify({ error: "Erreur avec OpenAI." })}\n\n`);
+        hasMore = false;
       }
     }
 
     console.log("Réponse complète :", fullResponse);
-    res.json({ role: "assistant", content: fullResponse });
+    res.write(`data: ${JSON.stringify({ complete: true })}\n\n`);
+    res.end();
   } catch (error) {
     console.error("Erreur lors de l'appel à OpenAI :", error);
-    res.status(500).send("Erreur interne du serveur");
+    res.write(`data: ${JSON.stringify({ error: "Erreur interne du serveur." })}\n\n`);
+    res.end();
   }
 });
 
@@ -90,4 +100,5 @@ app.post("/api/chatgpt", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`);
 });
+
 
