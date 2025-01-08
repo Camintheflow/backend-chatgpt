@@ -10,6 +10,12 @@ app.use(express.json());
 
 const conversations = {};
 
+// Route pour la racine
+app.get("/", (req, res) => {
+  res.send("Bienvenue sur l'API ChatGPT !");
+});
+
+// Route pour gérer les requêtes à ChatGPT
 app.post("/api/chatgpt", async (req, res) => {
   const { message, userId } = req.body;
 
@@ -23,13 +29,11 @@ app.post("/api/chatgpt", async (req, res) => {
   conversations[userId].push({ role: "user", content: message });
 
   try {
-    let fullResponse = ""; // Pour construire la réponse complète
-    let hasMore = true; // Flag pour savoir si une continuation est nécessaire
+    let fullResponse = "";
+    let hasMore = true;
     const maxTokensPerRequest = 300;
-    const maxContinuations = 5; // Limite le nombre de continuations
-    let continuationCount = 0;
 
-    while (hasMore && continuationCount < maxContinuations) {
+    while (hasMore) {
       console.log("Envoi de la requête à OpenAI...");
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -59,19 +63,11 @@ app.post("/api/chatgpt", async (req, res) => {
           hasMore = false;
         } else if (data.choices[0].finish_reason === "length") {
           console.log("La réponse est tronquée, nouvelle requête...");
-          continuationCount++; // Incrémente le compteur de continuation
-        } else {
-          hasMore = false; // Cas inattendu
         }
       } else {
         console.error("Erreur OpenAI :", data);
         return res.status(response.status).send(data);
       }
-    }
-
-    if (continuationCount >= maxContinuations) {
-      console.log("Limite de continuation atteinte, réponse partielle renvoyée.");
-      fullResponse += "\n\n[La réponse est trop longue, veuillez poser une question plus précise.]";
     }
 
     console.log("Réponse complète :", fullResponse);
@@ -82,6 +78,7 @@ app.post("/api/chatgpt", async (req, res) => {
   }
 });
 
+// Démarrage du serveur
 app.listen(PORT, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`);
 });
