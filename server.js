@@ -8,7 +8,7 @@ const cors = require("cors");
 // Configure CORS pour permettre l'accès depuis Shopify
 app.use(
   cors({
-    origin: "https://https://norrfamily.com", // Remplacez par l'URL de votre site Shopify
+    origin: "https://norrfamily.com", // URL correcte de votre site Shopify
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
