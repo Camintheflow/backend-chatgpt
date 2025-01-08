@@ -16,12 +16,19 @@ app.get("/", (req, res) => {
 });
 
 app.post("/api/chatgpt", async (req, res) => {
-  try {
-    const { message } = req.body;
+  
+      const { message, userId } = req.body;
+
 
     if (!message) {
       return res.status(400).send("Le champ 'message' est requis.");
     }
+ // Initialise l'historique pour ce userId s'il n'existe pas
+  if (!conversations[userId]) {
+    conversations[userId] = [];
+ // Ajoute le message utilisateur à l'historique
+  conversations[userId].push({ role: 'user', content: message });
+ try {
 
     console.log("Envoi de la requête à OpenAI...");
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -42,6 +49,14 @@ app.post("/api/chatgpt", async (req, res) => {
     });
 
     const data = await response.json();
+
+    // Ajoute la réponse de l'IA à l'historique
+    const aiMessage = data.choices[0].message;
+    conversations[userId].push(aiMessage);
+// Renvoie la réponse au frontend
+    res.json(aiMessage);
+  
+  }
     console.log("Réponse OpenAI :", data);
     res.json(data);
   } catch (error) {
