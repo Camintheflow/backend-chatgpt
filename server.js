@@ -5,7 +5,7 @@ const fetch = require("node-fetch");
 require("dotenv").config();
 const cors = require("cors");
 
-// Configure CORS pour permettre l'accès depuis Shopify
+// Configuration CORS pour permettre l'accès depuis Shopify
 app.use(
   cors({
     origin: "https://norrfamily.com", // URL correcte de votre site Shopify
@@ -27,15 +27,23 @@ app.get("/", (req, res) => {
 app.post("/api/chatgpt", async (req, res) => {
   const { message, userId } = req.body;
 
+  // Validation des champs
   if (!message) {
-    return res.status(400).send("Le champ 'message' est requis.");
+    return res.status(400).send({ error: "Le champ 'message' est requis." });
   }
 
+  if (!userId) {
+    return res.status(400).send({ error: "Le champ 'userId' est requis." });
+  }
+
+  // Initialisation de la conversation si l'utilisateur est nouveau
   if (!conversations[userId]) {
     conversations[userId] = [];
   }
+
   conversations[userId].push({ role: "user", content: message });
 
+  // Configurer les en-têtes pour le streaming
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -64,29 +72,35 @@ app.post("/api/chatgpt", async (req, res) => {
         }),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        const aiMessage = data.choices[0].message;
-        conversations[userId].push(aiMessage);
-        fullResponse += aiMessage.content;
-
-        // Envoi des parties de la réponse via le flux
-        res.write(`data: ${JSON.stringify({ content: aiMessage.content })}\n\n`);
-
-        if (data.choices[0].finish_reason === "stop") {
-          hasMore = false;
-        } else if (data.choices[0].finish_reason === "length") {
-          console.log("La réponse est tronquée, nouvelle requête...");
-        }
-      } else {
-        console.error("Erreur OpenAI :", data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Erreur OpenAI :", errorData);
         res.write(`data: ${JSON.stringify({ error: "Erreur avec OpenAI." })}\n\n`);
         hasMore = false;
+        break;
+      }
+
+      const data = await response.json();
+      const aiMessage = data.choices[0].message;
+
+      // Ajouter le message de l'assistant à la conversation
+      conversations[userId].push(aiMessage);
+      fullResponse += aiMessage.content;
+
+      // Envoi de la partie de réponse à l'utilisateur
+      res.write(`data: ${JSON.stringify({ content: aiMessage.content })}\n\n`);
+
+      // Vérification de la raison de fin
+      if (data.choices[0].finish_reason === "stop") {
+        hasMore = false;
+      } else if (data.choices[0].finish_reason === "length") {
+        console.log("La réponse est tronquée, nouvelle requête...");
       }
     }
 
     console.log("Réponse complète :", fullResponse);
+
+    // Indiquer la fin de la réponse
     res.write(`data: ${JSON.stringify({ complete: true })}\n\n`);
     res.end();
   } catch (error) {
@@ -100,5 +114,3 @@ app.post("/api/chatgpt", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`);
 });
-
-
