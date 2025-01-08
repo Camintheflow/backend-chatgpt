@@ -5,7 +5,15 @@ const fetch = require("node-fetch");
 require("dotenv").config();
 const cors = require("cors");
 
-app.use(cors());
+// Configure CORS pour permettre l'accès depuis Shopify
+app.use(
+  cors({
+    origin: "https://https://norrfamily.com", // Remplacez par l'URL de votre site Shopify
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(express.json());
 
 const conversations = {};
