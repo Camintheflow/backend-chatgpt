@@ -1,87 +1,68 @@
-const express = require("express");
-const app = express();
-const PORT = process.env.PORT || 3000;
-const fetch = require("node-fetch");
-require("dotenv").config();
-const cors = require("cors");
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM entièrement chargé, script démarré');
 
-app.use(cors());
-app.use(express.json());
+  const sendButton = document.getElementById('send-button');
+  const userInput = document.getElementById('user-input');
+  const chatBox = document.getElementById('chat-box');
+  const loadingIndicator = document.getElementById('loading-indicator'); // Sablier
 
-const conversations = {}; // Stockage des conversations par `userId`
-
-// Route pour gérer les messages
-app.post("/api/chatgpt", async (req, res) => {
-  const { message, userId } = req.body;
-
-  // Vérifie que le champ `message` est fourni
-  if (!message || !userId) {
-    return res.status(400).send("Les champs 'message' et 'userId' sont requis.");
+  // Vérifie que les éléments HTML nécessaires existent
+  if (!sendButton || !userInput || !chatBox || !loadingIndicator) {
+    console.error('Un ou plusieurs éléments HTML nécessaires au script sont introuvables.');
+    return;
   }
 
-  // Initialise l'historique pour ce `userId` s'il n'existe pas
-  if (!conversations[userId]) {
-    conversations[userId] = [];
-  }
+  // Ajoute un événement au bouton
+  sendButton.addEventListener('click', async (event) => {
+    event.preventDefault(); // Empêche le comportement par défaut du bouton
+    console.log('Bouton cliqué');
 
-  // Ajoute le message utilisateur à l'historique
-  conversations[userId].push({ role: "user", content: message });
+    const message = userInput.value.trim();
 
-  try {
-    let fullResponse = ""; // Stockage de la réponse complète
-    let hasMore = true; // Indicateur pour savoir si une continuation est nécessaire
-    const maxTokensPerRequest = 300;
-
-    while (hasMore) {
-      console.log("Envoi de la requête à OpenAI...");
-
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4-turbo",
-          messages: [
-            { role: "system", content: "Tu es un assistant utile et amical." },
-            ...conversations[userId],
-          ],
-          max_tokens: maxTokensPerRequest,
-          temperature: 0.7,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        const aiMessage = data.choices[0].message;
-        conversations[userId].push(aiMessage); // Ajoute la réponse à l'historique
-        fullResponse += aiMessage.content; // Concatène la réponse
-
-        // Vérifie si la réponse est complète ou tronquée
-        if (data.choices[0].finish_reason === "stop") {
-          hasMore = false; // La réponse est terminée
-        } else if (data.choices[0].finish_reason === "length") {
-          console.log("Réponse tronquée, nouvelle requête...");
-        }
-      } else {
-        console.error("Erreur OpenAI :", data);
-        return res.status(response.status).send(data);
-      }
+    if (message === '') {
+      console.warn('Message vide, aucune action');
+      return;
     }
 
-    // Renvoie la réponse complète au frontend
-    console.log("Réponse complète :", fullResponse);
-    res.json({ role: "assistant", content: fullResponse });
-  } catch (error) {
-    console.error("Erreur lors de l'appel à OpenAI :", error);
-    res.status(500).send("Erreur interne du serveur");
-  }
-});
+    // Affiche le message de l'utilisateur
+    chatBox.innerHTML += `<p><strong>Vous :</strong> ${message}</p>`;
 
-// Démarre le serveur
-app.listen(PORT, () => {
-  console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`);
-});
+    // Affiche l'indicateur de chargement
+    loadingIndicator.style.display = 'block';
 
+    try {
+      console.log('Début de l’appel API');
+      const response = await fetch('https://backend-chatgpt-anwj.onrender.com/api/chatgpt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur API : ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Réponse API :', data);
+
+      // Masque l'indicateur de chargement
+      loadingIndicator.style.display = 'none';
+
+      // Affiche la réponse de l'API
+      chatBox.innerHTML += `<p><strong>NORR :</strong> ${data.content}</p>`;
+    } catch (error) {
+      console.error('Erreur détectée :', error);
+
+      // Masque l'indicateur de chargement
+      loadingIndicator.style.display = 'none';
+
+      chatBox.innerHTML += `<p><strong>NORR :</strong> Une erreur est survenue. Veuillez réessayer plus tard.</p>`;
+    }
+
+    // Efface le champ d'entrée pour permettre une nouvelle demande
+    userInput.value = '';
+    chatBox.scrollTop = chatBox.scrollHeight;
+  });
+});
