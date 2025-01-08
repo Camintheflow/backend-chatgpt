@@ -18,6 +18,19 @@ app.get("/", (req, res) => {
   res.send("Le serveur fonctionne correctement !");
 });
 
+// Fonction pour limiter l'historique des conversations
+function limitConversationHistory(userId) {
+  const maxMessages = 50; // Ajustez cette valeur si nécessaire
+  if (conversations[userId].length > maxMessages) {
+    conversations[userId].shift(); // Supprime le message le plus ancien
+  }
+}
+
+// Fonction pour vérifier si la réponse est incomplète
+function isResponseIncomplete(response) {
+  return response.endsWith("..."); // Vérifie si la réponse se termine par "..."
+}
+
 app.post("/api/chatgpt", async (req, res) => {
   const { message, userId } = req.body;
 
@@ -34,6 +47,9 @@ app.post("/api/chatgpt", async (req, res) => {
   // Ajoute le message utilisateur à l'historique
   conversations[userId].push({ role: "user", content: message });
 
+  // Limite l'historique pour éviter de dépasser la limite de tokens
+  limitConversationHistory(userId);
+
   try {
     console.log("Envoi de la requête à OpenAI...");
 
@@ -41,7 +57,7 @@ app.post("/api/chatgpt", async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, // Remplacez par votre clé OpenAI
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, // Utilise votre clé API
       },
       body: JSON.stringify({
         model: "gpt-4-turbo",
@@ -49,7 +65,7 @@ app.post("/api/chatgpt", async (req, res) => {
           { role: "system", content: "Tu es un assistant utile et amical." },
           ...conversations[userId], // Utilise tout l'historique de l'utilisateur
         ],
-        max_tokens: 150,
+        max_tokens: 500, // Limite le nombre de tokens pour la réponse
         temperature: 0.7,
       }),
     });
@@ -61,8 +77,40 @@ app.post("/api/chatgpt", async (req, res) => {
       const aiMessage = data.choices[0].message;
       conversations[userId].push(aiMessage);
 
-      // Renvoie la réponse au frontend
-      console.log("Réponse OpenAI :", aiMessage);
+      // Vérifie si la réponse est incomplète
+      if (isResponseIncomplete(aiMessage.content)) {
+        console.log("Réponse incomplète détectée. Requête de continuation...");
+
+        const continueResponse = await fetch(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: "gpt-4-turbo",
+              messages: conversations[userId],
+              max_tokens: 500, // Toujours limiter pour éviter les coupures
+              temperature: 0.7,
+            }),
+          }
+        );
+
+        const continueData = await continueResponse.json();
+
+        if (continueResponse.ok) {
+          const continuedMessage = continueData.choices[0].message;
+          conversations[userId].push(continuedMessage); // Ajoute la continuation à l'historique
+          aiMessage.content += continuedMessage.content; // Combine les deux parties
+        } else {
+          console.error("Erreur lors de la continuation :", continueData);
+        }
+      }
+
+      // Renvoie la réponse complète au frontend
+      console.log("Réponse OpenAI complète :", aiMessage.content);
       res.json(aiMessage);
     } else {
       console.error("Erreur OpenAI :", data);
@@ -78,4 +126,3 @@ app.post("/api/chatgpt", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`);
 });
-
