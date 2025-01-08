@@ -1,68 +1,65 @@
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM entièrement chargé, script démarré');
+const express = require("express");
+const app = express();
+const PORT = process.env.PORT || 3000;
+const fetch = require("node-fetch");
+require("dotenv").config();
+const cors = require("cors");
 
-  const sendButton = document.getElementById('send-button');
-  const userInput = document.getElementById('user-input');
-  const chatBox = document.getElementById('chat-box');
-  const loadingIndicator = document.getElementById('loading-indicator'); // Sablier
+app.use(cors());
+app.use(express.json());
 
-  // Vérifie que les éléments HTML nécessaires existent
-  if (!sendButton || !userInput || !chatBox || !loadingIndicator) {
-    console.error('Un ou plusieurs éléments HTML nécessaires au script sont introuvables.');
-    return;
+const conversations = {};
+
+app.get("/", (req, res) => {
+  res.send("Le serveur fonctionne correctement !");
+});
+
+app.post("/api/chatgpt", async (req, res) => {
+  const { message, userId } = req.body;
+
+  if (!message) {
+    return res.status(400).send("Le champ 'message' est requis.");
   }
 
-  // Ajoute un événement au bouton
-  sendButton.addEventListener('click', async (event) => {
-    event.preventDefault(); // Empêche le comportement par défaut du bouton
-    console.log('Bouton cliqué');
+  if (!conversations[userId]) {
+    conversations[userId] = [];
+  }
+  conversations[userId].push({ role: "user", content: message });
 
-    const message = userInput.value.trim();
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4-turbo",
+        messages: [
+          { role: "system", content: "Tu es un assistant utile et amical." },
+          ...conversations[userId],
+        ],
+        max_tokens: 300,
+        temperature: 0.7,
+      }),
+    });
 
-    if (message === '') {
-      console.warn('Message vide, aucune action');
-      return;
+    const data = await response.json();
+
+    if (response.ok) {
+      const aiMessage = data.choices[0].message;
+      conversations[userId].push(aiMessage);
+      res.json({ role: "assistant", content: aiMessage.content });
+    } else {
+      res.status(response.status).send(data);
     }
-
-    // Affiche le message de l'utilisateur
-    chatBox.innerHTML += `<p><strong>Vous :</strong> ${message}</p>`;
-
-    // Affiche l'indicateur de chargement
-    loadingIndicator.style.display = 'block';
-
-    try {
-      console.log('Début de l’appel API');
-      const response = await fetch('https://backend-chatgpt-anwj.onrender.com/api/chatgpt', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur API : ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('Réponse API :', data);
-
-      // Masque l'indicateur de chargement
-      loadingIndicator.style.display = 'none';
-
-      // Affiche la réponse de l'API
-      chatBox.innerHTML += `<p><strong>NORR :</strong> ${data.content}</p>`;
-    } catch (error) {
-      console.error('Erreur détectée :', error);
-
-      // Masque l'indicateur de chargement
-      loadingIndicator.style.display = 'none';
-
-      chatBox.innerHTML += `<p><strong>NORR :</strong> Une erreur est survenue. Veuillez réessayer plus tard.</p>`;
-    }
-
-    // Efface le champ d'entrée pour permettre une nouvelle demande
-    userInput.value = '';
-    chatBox.scrollTop = chatBox.scrollHeight;
-  });
+  } catch (error) {
+    console.error("Erreur lors de l'appel à OpenAI :", error);
+    res.status(500).send("Erreur interne du serveur");
+  }
 });
+
+app.listen(PORT, () => {
+  console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`);
+});
+
