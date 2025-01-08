@@ -8,20 +8,18 @@ const cors = require("cors");
 app.use(cors());
 app.use(express.json());
 
-const conversations = {};
+const conversations = {}; // Stockage des conversations par `userId`
 
+// Route pour gérer les messages
 app.post("/api/chatgpt", async (req, res) => {
   const { message, userId } = req.body;
 
-  // Vérifie que 'message' et 'userId' sont présents
-  if (!message || typeof message !== "string") {
-    return res.status(400).json({ error: "Le champ 'message' est requis et doit être une chaîne." });
-  }
-  if (!userId || typeof userId !== "string") {
-    return res.status(400).json({ error: "Le champ 'userId' est requis et doit être une chaîne." });
+  // Vérifie que le champ `message` est fourni
+  if (!message || !userId) {
+    return res.status(400).send("Les champs 'message' et 'userId' sont requis.");
   }
 
-  // Initialise une nouvelle conversation si nécessaire
+  // Initialise l'historique pour ce `userId` s'il n'existe pas
   if (!conversations[userId]) {
     conversations[userId] = [];
   }
@@ -30,8 +28,8 @@ app.post("/api/chatgpt", async (req, res) => {
   conversations[userId].push({ role: "user", content: message });
 
   try {
-    let fullResponse = "";
-    let hasMore = true;
+    let fullResponse = ""; // Stockage de la réponse complète
+    let hasMore = true; // Indicateur pour savoir si une continuation est nécessaire
     const maxTokensPerRequest = 300;
 
     while (hasMore) {
@@ -58,28 +56,31 @@ app.post("/api/chatgpt", async (req, res) => {
 
       if (response.ok) {
         const aiMessage = data.choices[0].message;
-        conversations[userId].push(aiMessage);
-        fullResponse += aiMessage.content;
+        conversations[userId].push(aiMessage); // Ajoute la réponse à l'historique
+        fullResponse += aiMessage.content; // Concatène la réponse
 
+        // Vérifie si la réponse est complète ou tronquée
         if (data.choices[0].finish_reason === "stop") {
-          hasMore = false;
+          hasMore = false; // La réponse est terminée
         } else if (data.choices[0].finish_reason === "length") {
-          console.log("Réponse incomplète, envoi d'une nouvelle requête...");
+          console.log("Réponse tronquée, nouvelle requête...");
         }
       } else {
         console.error("Erreur OpenAI :", data);
-        return res.status(response.status).json({ error: data });
+        return res.status(response.status).send(data);
       }
     }
 
+    // Renvoie la réponse complète au frontend
     console.log("Réponse complète :", fullResponse);
     res.json({ role: "assistant", content: fullResponse });
   } catch (error) {
     console.error("Erreur lors de l'appel à OpenAI :", error);
-    res.status(500).json({ error: "Erreur interne du serveur" });
+    res.status(500).send("Erreur interne du serveur");
   }
 });
 
+// Démarre le serveur
 app.listen(PORT, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`);
 });
