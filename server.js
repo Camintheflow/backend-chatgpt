@@ -28,12 +28,16 @@ app.post("/api/chatgpt", async (req, res) => {
   const { message, userId } = req.body;
 
   // Validation des champs
-  if (!message) {
-    return res.status(400).send({ error: "Le champ 'message' est requis." });
+  if (!message || typeof message !== "string") {
+    return res
+      .status(400)
+      .send({ error: "Le champ 'message' est requis et doit être une chaîne de caractères." });
   }
 
-  if (!userId) {
-    return res.status(400).send({ error: "Le champ 'userId' est requis." });
+  if (!userId || typeof userId !== "string") {
+    return res
+      .status(400)
+      .send({ error: "Le champ 'userId' est requis et doit être une chaîne de caractères." });
   }
 
   // Initialisation de la conversation si l'utilisateur est nouveau
@@ -54,7 +58,7 @@ app.post("/api/chatgpt", async (req, res) => {
     const maxTokensPerRequest = 300;
 
     while (hasMore) {
-      console.log("Envoi de la requête à OpenAI...");
+      console.log(`Envoi de la requête à OpenAI pour userId: ${userId}`);
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -98,7 +102,7 @@ app.post("/api/chatgpt", async (req, res) => {
       }
     }
 
-    console.log("Réponse complète :", fullResponse);
+    console.log(`Réponse complète pour userId ${userId} :`, fullResponse);
 
     // Indiquer la fin de la réponse
     res.write(`data: ${JSON.stringify({ complete: true })}\n\n`);
