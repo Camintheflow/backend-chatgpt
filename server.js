@@ -16,31 +16,24 @@ app.use(
 
 app.use(express.json());
 
-const conversations = {};
+let conversation = []; // Unique conversation pour tous les utilisateurs
 
 app.get("/", (req, res) => {
   res.send("Bienvenue sur l'API ChatGPT !");
 });
 
 app.post("/api/chatgpt", async (req, res) => {
-  const { message, userId } = req.body;
+  const { message } = req.body;
 
-  console.log("Requête reçue :", { message, userId });
+  console.log("Requête reçue :", { message });
 
-  // Validation des champs requis
   if (!message) {
     res.status(400).json({ error: "Le champ 'message' est requis." });
     return;
   }
 
-  // Assure un `userId` par défaut si manquant
-  const safeUserId = userId || "default-user";
-  if (!conversations[safeUserId]) {
-    conversations[safeUserId] = [];
-  }
-
   // Ajout du message de l'utilisateur à la conversation
-  conversations[safeUserId].push({ role: "user", content: message });
+  conversation.push({ role: "user", content: message });
 
   // Configuration des en-têtes pour SSE
   res.setHeader("Content-Type", "text/event-stream");
@@ -50,7 +43,6 @@ app.post("/api/chatgpt", async (req, res) => {
   try {
     console.log("Envoi de la requête à OpenAI...");
 
-    // Appel à l'API OpenAI
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -61,7 +53,7 @@ app.post("/api/chatgpt", async (req, res) => {
         model: "gpt-4-turbo",
         messages: [
           { role: "system", content: "Tu es un assistant utile et amical." },
-          ...conversations[safeUserId],
+          ...conversation,
         ],
         max_tokens: 300,
         temperature: 0.7,
@@ -81,9 +73,8 @@ app.post("/api/chatgpt", async (req, res) => {
 
     // Ajout du message de l'IA à la conversation
     const aiMessage = data.choices[0].message;
-    conversations[safeUserId].push(aiMessage);
+    conversation.push(aiMessage);
 
-    // Envoi des données au frontend
     res.write(`data: ${JSON.stringify({ content: aiMessage.content })}\n\n`);
     res.write(`data: ${JSON.stringify({ complete: true })}\n\n`);
     res.end();
@@ -94,7 +85,6 @@ app.post("/api/chatgpt", async (req, res) => {
   }
 });
 
-// Lancement du serveur
 app.listen(PORT, () =>
   console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`)
 );
