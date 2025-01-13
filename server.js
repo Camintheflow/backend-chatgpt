@@ -1,37 +1,19 @@
-const express = require("express");
-const app = express();
-const PORT = process.env.PORT || 3000;
-const fetch = require("node-fetch");
-require("dotenv").config();
-const cors = require("cors");
-
-// Configuration CORS
-app.use(
-  cors({
-    origin: "*", // Remplace par ton domaine Shopify en production
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
-
-app.use(express.json());
-
-let conversation = []; // Unique conversation pour tous les utilisateurs
-
-app.get("/", (req, res) => {
-  res.send("Bienvenue sur l'API ChatGPT !");
-});
-
 app.post("/api/chatgpt", async (req, res) => {
   const { message } = req.body;
+
+  console.log("Message reçu du frontend :", message); // Vérifie le message reçu
 
   if (!message) {
     res.status(400).json({ error: "Le champ 'message' est requis." });
     return;
   }
 
-  // Ajouter le message de l'utilisateur à la conversation
   conversation.push({ role: "user", content: message });
+
+  console.log("Messages envoyés à OpenAI :", [
+    { role: "system", content: "Tu es un assistant parental bienveillant et utile." },
+    ...conversation,
+  ]);
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -51,20 +33,15 @@ app.post("/api/chatgpt", async (req, res) => {
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Erreur avec OpenAI :", errorText);
-      res.status(500).json({ error: "Erreur avec OpenAI." });
-      return;
-    }
-
     const data = await response.json();
 
-    // Ajouter la réponse d'OpenAI à la conversation
+    console.log("Réponse reçue d'OpenAI :", data); // Affiche la réponse brute
+
     const aiMessage = data.choices[0].message;
+    console.log("Réponse envoyée au frontend :", aiMessage.content); // Vérifie la réponse
+
     conversation.push(aiMessage);
 
-    // Envoyer la réponse au frontend
     res.json({ content: aiMessage.content });
   } catch (error) {
     console.error("Erreur interne :", error.message);
@@ -72,9 +49,6 @@ app.post("/api/chatgpt", async (req, res) => {
   }
 });
 
-app.listen(PORT, () =>
-  console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`)
-);
 
 
 
