@@ -25,7 +25,6 @@ app.get("/", (req, res) => {
 app.post("/api/chatgpt", async (req, res) => {
   const { message } = req.body;
 
-  // Vérifie si le message a bien été reçu du frontend
   console.log("Message reçu du frontend :", message);
 
   if (!message) {
@@ -36,14 +35,17 @@ app.post("/api/chatgpt", async (req, res) => {
   // Ajout du message de l'utilisateur à la conversation
   conversation.push({ role: "user", content: message });
 
-  // Affiche les messages envoyés à OpenAI
+  // Limitation du contexte conversationnel (garde uniquement les 20 derniers messages)
+  if (conversation.length > 20) {
+    conversation.shift(); // Supprime les messages les plus anciens
+  }
+
   console.log("Messages envoyés à OpenAI :", [
-    { role: "system", content: "Tu es un assistant parental bienveillant et utile." },
+    { role: "system", content: "Tu es un assistant parental bienveillant et utile. Tes réponses doivent être courtes et claires. Si tu penses que ta réponse sera coupée, termine par 'Souhaitez-vous que je continue ?'." },
     ...conversation,
   ]);
 
   try {
-    // Envoi de la requête à OpenAI
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -53,15 +55,14 @@ app.post("/api/chatgpt", async (req, res) => {
       body: JSON.stringify({
         model: "gpt-4-turbo",
         messages: [
-          { role: "system", content: "Tu es un assistant parental bienveillant et utile." },
+          { role: "system", content: "Tu es un assistant parental bienveillant et utile. Tes réponses doivent être courtes et claires. Si tu penses que ta réponse sera coupée, termine par 'Souhaitez-vous que je continue ?'." },
           ...conversation,
         ],
-        max_tokens: 300,
+        max_tokens: 350, // Limite légèrement augmentée
         temperature: 0.7,
       }),
     });
 
-    // Vérifie si la requête OpenAI a réussi
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Erreur avec OpenAI :", errorText);
@@ -71,14 +72,21 @@ app.post("/api/chatgpt", async (req, res) => {
 
     const data = await response.json();
 
-    // Affiche la réponse brute reçue d'OpenAI
     console.log("Réponse reçue d'OpenAI :", data);
 
-    // Extrait le message de l'IA
     const aiMessage = data.choices[0].message;
+
+    // Vérifie si la réponse est coupée
+    const isCutOff = data.choices[0].finish_reason === "length";
+
+    if (isCutOff) {
+      console.log("La réponse a été coupée par la limite de tokens.");
+      aiMessage.content += "\n\nSouhaitez-vous un autre conseil ou des détails supplémentaires ?";
+    }
+
     console.log("Réponse envoyée au frontend :", aiMessage.content);
 
-    // Ajoute la réponse d'OpenAI à la conversation
+    // Ajout de la réponse de l'IA à la conversation
     conversation.push(aiMessage);
 
     // Envoie la réponse au frontend
@@ -92,6 +100,7 @@ app.post("/api/chatgpt", async (req, res) => {
 app.listen(PORT, () =>
   console.log(`Serveur en cours d'exécution sur http://localhost:${PORT}`)
 );
+
 
 
 
