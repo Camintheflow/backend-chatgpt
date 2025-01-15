@@ -6,6 +6,12 @@ const cors = require("cors");
 const app = express();
 const port = 3000;
 
+// Vérification de la clé API
+if (!process.env.OPENAI_API_KEY) {
+  console.error("La clé API OpenAI est manquante. Assurez-vous qu'elle est configurée.");
+  process.exit(1); // Arrête le serveur si la clé API est absente
+}
+
 // Configuration de l'API OpenAI
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
@@ -65,6 +71,7 @@ Souviens-toi, tu es là pour éclairer, rassurer, et guider chaque parent avec a
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
