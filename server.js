@@ -1,3 +1,4 @@
+require("dotenv").config(); // Charger les variables d'environnement
 const express = require("express");
 const bodyParser = require("body-parser");
 const { Configuration, OpenAIApi } = require("openai");
@@ -71,6 +72,7 @@ Souviens-toi, tu es là pour éclairer, rassurer, et guider chaque parent avec a
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
