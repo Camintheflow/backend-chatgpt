@@ -1,78 +1,84 @@
-// Chargement des dépendances
-require("dotenv").config(); // Charge les variables d'environnement
-const express = require("express");
-const bodyParser = require("body-parser");
-const { Configuration, OpenAIApi } = require("openai");
-const cors = require("cors");
+document.addEventListener("DOMContentLoaded", () => {
+  const sendButton = document.getElementById("send-button");
+  const userInput = document.getElementById("user-input");
+  const chatBox = document.getElementById("chat-box");
+  const loadingIndicator = document.getElementById("loading-indicator");
 
-const app = express();
-const port = 3000;
-
-// Configuration de l'API OpenAI
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY, // Lecture de la clé API depuis les variables d'environnement
-});
-const openai = new OpenAIApi(configuration);
-
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
-
-// Route GET pour la racine "/"
-app.get("/", (req, res) => {
-  res.send("Le serveur est opérationnel ! 🌟");
-});
-
-// Endpoint principal
-app.post("/api/chat", async (req, res) => {
-  const conversation = req.body.conversation || [];
-
-  const messages = [
-    {
-      role: "system",
-      content: `
-Tu es NORR, un assistant parental lumineux et spirituel, inspiré par l'approche de Lulumineuse. Ton rôle est d'accompagner les parents avec bienveillance et de les aider à intégrer la spiritualité dans leur quotidien familial. 
-
-- **Ton et style** : Adopte un ton chaleureux et compatissant, avec une touche d'humour léger et engageant. Sois clair, direct, et positif, mais évite les excès de langage fleur bleue. Propose des solutions pratiques et accessibles, tout en inspirant confiance et sérénité.
-
-- **Harcèlement** : Lorsque les parents te parlent de harcèlement scolaire ou social, appuie-toi sur les travaux d'Emmanuelle Piquet. Offre des pistes concrètes et des outils pour aider l'enfant à se sentir valorisé et confiant, tout en soutenant les parents dans leur démarche.
-
-- **Éducation bienveillante** : Pour les questions éducatives générales, inspire-toi des principes d'éducation bienveillante d'Isabelle Filliozat. Explique les comportements des enfants à travers les découvertes neuroscientifiques et propose des approches empathiques, respectueuses et réalistes.
-
-- **Approche spirituelle** : Intègre des concepts comme la connexion à soi, l'amour universel et l'équilibre familial, mais de manière simple et naturelle. Encourage les parents à développer une relation harmonieuse avec leurs enfants, en restant ancrés et à l'écoute de leur intuition.
-
-- **Adaptation** : Pose des questions pertinentes pour comprendre chaque situation : âge de l'enfant, contexte familial, rôle dans la fratrie, ou tout autre détail nécessaire. Chaque réponse doit être adaptée, inspirante, et utile pour les parents.
-
-Souviens-toi, tu es là pour soutenir, rassurer, et guider les parents avec bienveillance et respect, tout en restant accessible et engageant.
-      `,
-    },
-    ...conversation,
-  ];
-
-  try {
-    console.log("Messages envoyés à OpenAI :", messages);
-
-    const completion = await openai.createChatCompletion({
-      model: "gpt-4-turbo",
-      messages: messages,
-    });
-
-    console.log("Réponse d'OpenAI :", completion.data);
-
-    res.json({
-      reply: completion.data.choices[0].message.content,
-    });
-  } catch (error) {
-    console.error("Erreur lors de l'appel à OpenAI :", error.response?.data || error.message);
-    res.status(500).json({ error: "Une erreur est survenue. Veuillez réessayer." });
+  if (!sendButton || !userInput || !chatBox || !loadingIndicator) {
+    console.error("Certains éléments nécessaires sont introuvables.");
+    return;
   }
-});
 
-// Démarrage du serveur
-app.listen(port, () => {
-  console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
-});
+  // Scroll automatiquement le chat vers le bas
+  const scrollToBottom = () => {
+    chatBox.scrollTop = chatBox.scrollHeight;
+  };
 
+  // Fonction pour afficher un message dans le chat
+  const displayMessage = (message, sender = "user") => {
+    const messageClass = sender === "user" ? "user-message" : "norr-message";
+    chatBox.innerHTML += `<p class="${messageClass}"><strong>${sender === "user" ? "Vous" : "NORR"} :</strong> ${message}</p>`;
+    scrollToBottom();
+  };
+
+  // Afficher un message de bienvenue au chargement de la page
+  const displayWelcomeMessage = () => {
+    const welcomeMessage = "Bonjour ! Comment puis-je vous accompagner aujourd'hui dans votre aventure parentale ? 😊";
+    displayMessage(welcomeMessage, "norr");
+  };
+
+  // Appeler la fonction pour afficher le message de bienvenue
+  displayWelcomeMessage();
+
+  const sendMessage = async () => {
+    const message = userInput.value.trim();
+
+    if (!message || message.length === 0) {
+      console.warn("Message vide. Aucune requête envoyée.");
+      return;
+    }
+
+    // Affiche le message de l'utilisateur
+    displayMessage(message, "user");
+    userInput.value = "";
+
+    // Affiche l'indicateur de chargement
+    loadingIndicator.style.display = "block";
+
+    try {
+      const response = await fetch("https://backend-chatgpt-anwj.onrender.com/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ conversation, message }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur réseau ou serveur (${response.status})`);
+      }
+
+      const data = await response.json();
+
+      if (data.reply) {
+        displayMessage(data.reply, "norr");
+      } else {
+        console.warn("Réponse vide reçue du serveur.");
+        displayMessage("Une erreur est survenue. Réessayez plus tard.", "norr");
+      }
+    } catch (error) {
+      console.error("Erreur détectée :", error);
+      displayMessage("Une erreur est survenue. Veuillez réessayer.", "norr");
+    } finally {
+      loadingIndicator.style.display = "none";
+    }
+  };
+
+  sendButton.addEventListener("click", sendMessage);
+  userInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") sendMessage();
+  });
+});
 
 
 
