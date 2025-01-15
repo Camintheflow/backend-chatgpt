@@ -18,6 +18,11 @@ const openai = new OpenAIApi(configuration);
 app.use(cors());
 app.use(bodyParser.json());
 
+// Route GET pour la racine "/"
+app.get("/", (req, res) => {
+  res.send("Le serveur est opérationnel ! 🌟");
+});
+
 // Endpoint principal
 app.post("/api/chat", async (req, res) => {
   const conversation = req.body.conversation || [];
@@ -67,8 +72,6 @@ Souviens-toi, tu es là pour éclairer, rassurer, et guider chaque parent avec a
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
-
-
 
 
 
