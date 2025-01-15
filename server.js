@@ -1,4 +1,3 @@
-require("dotenv").config(); // Charger les variables d'environnement
 const express = require("express");
 const bodyParser = require("body-parser");
 const { Configuration, OpenAIApi } = require("openai");
@@ -6,12 +5,6 @@ const cors = require("cors");
 
 const app = express();
 const port = 3000;
-
-// Vérification de la clé API
-if (!process.env.OPENAI_API_KEY) {
-  console.error("La clé API OpenAI est manquante. Assurez-vous qu'elle est configurée.");
-  process.exit(1); // Arrête le serveur si la clé API est absente
-}
 
 // Configuration de l'API OpenAI
 const configuration = new Configuration({
@@ -23,7 +16,12 @@ const openai = new OpenAIApi(configuration);
 app.use(cors());
 app.use(bodyParser.json());
 
-// Endpoint principal
+// Route par défaut pour la racine
+app.get("/", (req, res) => {
+  res.send("Bienvenue sur le serveur NORR !");
+});
+
+// Endpoint principal pour les requêtes POST
 app.post("/api/chat", async (req, res) => {
   const conversation = req.body.conversation || [];
 
