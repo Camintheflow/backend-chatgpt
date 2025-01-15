@@ -1,87 +1,67 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const sendButton = document.getElementById("send-button");
-  const userInput = document.getElementById("user-input");
-  const chatBox = document.getElementById("chat-box");
-  const loadingIndicator = document.getElementById("loading-indicator");
+// Chargement des dépendances
+require("dotenv").config(); // Charge les variables d'environnement
+const express = require("express");
+const bodyParser = require("body-parser");
+const { Configuration, OpenAIApi } = require("openai");
+const cors = require("cors");
 
-  if (!sendButton || !userInput || !chatBox || !loadingIndicator) {
-    console.error("Certains éléments nécessaires sont introuvables.");
-    return;
-  }
+const app = express();
+const port = 3000;
 
-  // Scroll automatiquement le chat vers le bas
-  const scrollToBottom = () => {
-    chatBox.scrollTop = chatBox.scrollHeight;
-  };
+// Configuration de l'API OpenAI
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY, // Lecture de la clé API depuis les variables d'environnement
+});
+const openai = new OpenAIApi(configuration);
 
-  // Fonction pour afficher un message dans le chat
-  const displayMessage = (message, sender = "user") => {
-    const messageClass = sender === "user" ? "user-message" : "norr-message";
-    chatBox.innerHTML += `<p class="${messageClass}"><strong>${sender === "user" ? "Vous" : "NORR"} :</strong> ${message}</p>`;
-    scrollToBottom();
-  };
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
 
-  // Afficher un message de bienvenue au chargement de la page
-  const displayWelcomeMessage = () => {
-    const welcomeMessage = "Bonjour ! Comment puis-je vous accompagner aujourd'hui dans votre aventure parentale ? 😊";
-    displayMessage(welcomeMessage, "norr");
-  };
-
-  // Appeler la fonction pour afficher le message de bienvenue
-  displayWelcomeMessage();
-
-  const sendMessage = async () => {
-    const message = userInput.value.trim();
-
-    if (!message || message.length === 0) {
-      console.warn("Message vide. Aucune requête envoyée.");
-      return;
-    }
-
-    // Affiche le message de l'utilisateur
-    displayMessage(message, "user");
-    userInput.value = "";
-
-    // Affiche l'indicateur de chargement
-    loadingIndicator.style.display = "block";
-
-    try {
-      const response = await fetch("https://backend-chatgpt-anwj.onrender.com/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ conversation, message }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur réseau ou serveur (${response.status})`);
-      }
-
-      const data = await response.json();
-
-      if (data.reply) {
-        displayMessage(data.reply, "norr");
-      } else {
-        console.warn("Réponse vide reçue du serveur.");
-        displayMessage("Une erreur est survenue. Réessayez plus tard.", "norr");
-      }
-    } catch (error) {
-      console.error("Erreur détectée :", error);
-      displayMessage("Une erreur est survenue. Veuillez réessayer.", "norr");
-    } finally {
-      loadingIndicator.style.display = "none";
-    }
-  };
-
-  sendButton.addEventListener("click", sendMessage);
-  userInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") sendMessage();
-  });
+// Route GET pour la racine "/"
+app.get("/", (req, res) => {
+  res.send("Le serveur est opérationnel ! 🌟");
 });
 
+// Endpoint principal
+app.post("/api/chat", async (req, res) => {
+  const conversation = req.body.conversation || [];
+  const message = req.body.message || "";
 
+  const messages = [
+    {
+      role: "system",
+      content: `
+Tu es NORR, un assistant parental inspiré. Adopte un ton chaleureux et compatissant, avec une touche d'humour léger et engageant. Sois clair, direct, et positif, et propose des solutions pratiques et accessibles.
+`,
+    },
+    ...conversation,
+    { role: "user", content: message },
+  ];
 
+  try {
+    console.log("Messages envoyés à OpenAI :", messages);
+
+    const completion = await openai.createChatCompletion({
+      model: "gpt-4-turbo",
+      messages: messages,
+    });
+
+    console.log("Réponse d'OpenAI :", completion.data);
+
+    res.json({
+      reply: completion.data.choices[0].message.content,
+    });
+  } catch (error) {
+    console.error("Erreur lors de l'appel à OpenAI :", error.response?.data || error.message);
+    res.status(500).json({ error: "Une erreur est survenue. Veuillez réessayer." });
+  }
+});
+
+// Démarrage du serveur
+app.listen(port, () => {
+  console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
+});
 
 
 
