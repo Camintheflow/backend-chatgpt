@@ -18,22 +18,24 @@ const openai = new OpenAIApi(configuration);
 app.use(cors());
 app.use(bodyParser.json());
 
-// Contexte global pour la session unique
-let globalContext = { context: {}, waitingForAnswer: null, lastUserMessage: null };
+// Stocke les sessions utilisateur
+const sessions = {};
 
-// Route GET pour vérifier que le serveur fonctionne
+// Route GET pour la racine "/"
 app.get("/", (req, res) => {
   res.send("Le serveur est opérationnel ! 🌟");
 });
 
 // Endpoint principal
 app.post("/api/chat", async (req, res) => {
+  const userId = req.body.userId || "default"; // Identifie l'utilisateur
+  if (!sessions[userId]) {
+    sessions[userId] = { context: {}, waitingForAnswer: null }; // Initialise une nouvelle session
+  }
+
+  const session = sessions[userId];
   const userMessage = req.body.message;
   const conversation = req.body.conversation || []; // Conserve la conversation pour un contexte complet
-
-  if (!globalContext.lastUserMessage && !globalContext.waitingForAnswer) {
-    globalContext.lastUserMessage = userMessage; // Stocke le message initial de l'utilisateur
-  }
 
   // Analyse dynamique pour détecter les informations manquantes
   const dynamicQuestions = [
@@ -43,48 +45,40 @@ app.post("/api/chat", async (req, res) => {
     { key: "single_parent", question: "Vivez-vous dans une famille monoparentale ?" },
   ];
 
-  if (globalContext.waitingForAnswer) {
+  if (session.waitingForAnswer) {
     // Si une réponse est attendue, l'ajouter au contexte
-    globalContext.context[globalContext.waitingForAnswer] = userMessage;
-    globalContext.waitingForAnswer = null; // Réinitialise l'attente
+    session.context[session.waitingForAnswer] = userMessage;
+    session.waitingForAnswer = null; // Réinitialise l'attente
+    return res.json({ reply: "Merci pour ces précisions ! Que puis-je faire pour vous maintenant ?" });
+  }
 
-    // Vérifie s'il reste des informations nécessaires
-    const nextMissingInfo = dynamicQuestions.find((q) => !globalContext.context[q.key]);
-    if (nextMissingInfo) {
-      globalContext.waitingForAnswer = nextMissingInfo.key;
-      return res.json({ reply: nextMissingInfo.question });
-    }
+  // Vérifie si des informations sont nécessaires
+  const missingInfo = dynamicQuestions.find((q) => !session.context[q.key]);
 
-    // Passe au traitement principal si tout est renseigné
-  } else {
-    // Vérifie s'il manque des informations
-    const missingInfo = dynamicQuestions.find((q) => !globalContext.context[q.key]);
-    if (missingInfo) {
-      globalContext.waitingForAnswer = missingInfo.key;
-      return res.json({ reply: missingInfo.question });
-    }
+  if (missingInfo) {
+    session.waitingForAnswer = missingInfo.key;
+    return res.json({ reply: missingInfo.question });
   }
 
   // Préparation du message complet avec le contexte
   const messages = [
     {
       role: "system",
-      content: `
+      content: 
       Tu es NORR, un assistant parental chaleureux et compatissant, inspiré par l'approche de Lulumineuse. 
       Ton rôle est d'accompagner les parents avec bienveillance et de les aider à intégrer la spiritualité 
       dans leur quotidien familial. Sois clair, direct, engageant et propose des solutions pratiques tout 
       en inspirant confiance et sérénité.
 
       Voici les informations utilisateur disponibles :
-      - Âge : ${globalContext.context.age || "non spécifié"}
-      - Sexe : ${globalContext.context.gender || "non spécifié"}
-      - Place dans la fratrie : ${globalContext.context.sibling_position || "non spécifié"}
-      - Famille monoparentale : ${globalContext.context.single_parent || "non spécifié"}
+      - Âge : ${session.context.age || "non spécifié"}
+      - Sexe : ${session.context.gender || "non spécifié"}
+      - Place dans la fratrie : ${session.context.sibling_position || "non spécifié"}
+      - Famille monoparentale : ${session.context.single_parent || "non spécifié"}
 
       Souviens-toi, tu es là pour soutenir, rassurer et guider les parents avec respect et empathie.
-      `,
+      ,
     },
-    { role: "user", content: globalContext.lastUserMessage }, // Reprend la question originale de l'utilisateur
     ...conversation, // Intègre la conversation complète reçue
   ];
 
@@ -102,10 +96,10 @@ app.post("/api/chat", async (req, res) => {
       const firstPart = fullReply.slice(0, maxLength);
       const secondPart = fullReply.slice(maxLength);
 
-      globalContext.context.pendingReply = secondPart; // Stocke la partie restante
+      session.context.pendingReply = secondPart; // Stocke la partie restante
 
       return res.json({
-        reply: `${firstPart}\n\nSouhaitez-vous plus de détails ? Répondez par "oui" pour continuer.`,
+        reply: ${firstPart}\n\nSouhaitez-vous plus de détails ? Répondez par "oui" pour continuer.,
       });
     }
 
@@ -118,9 +112,8 @@ app.post("/api/chat", async (req, res) => {
 
 // Démarrage du serveur
 app.listen(port, () => {
-  console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
+  console.log(Serveur en cours d'exécution sur http://localhost:${port});
 });
-
 
 
 
