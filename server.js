@@ -49,7 +49,13 @@ app.post("/api/chat", async (req, res) => {
     // Si une réponse est attendue, l'ajouter au contexte
     session.context[session.waitingForAnswer] = userMessage;
     session.waitingForAnswer = null; // Réinitialise l'attente
-    return res.json({ reply: "Merci pour ces précisions ! Que puis-je faire pour vous maintenant ?" });
+
+    // Passe à la prochaine information manquante ou répond à la question initiale
+    const nextMissingInfo = dynamicQuestions.find((q) => !session.context[q.key]);
+    if (nextMissingInfo) {
+      session.waitingForAnswer = nextMissingInfo.key;
+      return res.json({ reply: nextMissingInfo.question });
+    }
   }
 
   // Vérifie si des informations sont nécessaires
@@ -65,10 +71,10 @@ app.post("/api/chat", async (req, res) => {
     {
       role: "system",
       content: `
-      Tu es NORR, un assistant parental chaleureux et compatissant, inspiré par l'approche de Lulumineuse. 
+      Tu es NORR, un assistant parental chaleureux et compatissant, inspiré par l'approche de Lulumineuse, Emmanuelle piquet et isabelle filiiozat. 
       Ton rôle est d'accompagner les parents avec bienveillance et de les aider à intégrer la spiritualité 
       dans leur quotidien familial. Sois clair, direct, engageant et propose des solutions pratiques tout 
-      en inspirant confiance et sérénité.
+      en inspirant confiance et sérénité, et un peu d'humour quand cela est bienvenue. 
 
       Voici les informations utilisateur disponibles :
       - Âge : ${session.context.age || "non spécifié"}
@@ -80,6 +86,7 @@ app.post("/api/chat", async (req, res) => {
       `,
     },
     ...conversation, // Intègre la conversation complète reçue
+    { role: "user", content: userMessage }, // Ajoute la demande actuelle de l'utilisateur
   ];
 
   try {
@@ -88,22 +95,7 @@ app.post("/api/chat", async (req, res) => {
       messages: messages,
     });
 
-    const fullReply = completion.data.choices[0].message.content;
-
-    // Diviser la réponse si elle est longue
-    const maxLength = 300; // Limite de caractères par réponse
-    if (fullReply.length > maxLength) {
-      const firstPart = fullReply.slice(0, maxLength);
-      const secondPart = fullReply.slice(maxLength);
-
-      session.context.pendingReply = secondPart; // Stocke la partie restante
-
-      return res.json({
-        reply: `${firstPart}\n\nSouhaitez-vous plus de détails ? Répondez par "oui" pour continuer.`,
-      });
-    }
-
-    return res.json({ reply: fullReply });
+    return res.json({ reply: completion.data.choices[0].message.content });
   } catch (error) {
     console.error("Erreur OpenAI :", error);
     return res.status(500).json({ error: "Erreur lors de la génération de la réponse." });
@@ -114,6 +106,7 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
