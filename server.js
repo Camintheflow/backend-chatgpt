@@ -88,7 +88,22 @@ app.post("/api/chat", async (req, res) => {
       messages: messages,
     });
 
-    return res.json({ reply: completion.data.choices[0].message.content });
+    const fullReply = completion.data.choices[0].message.content;
+
+    // Diviser la réponse si elle est longue
+    const maxLength = 300; // Limite de caractères par réponse
+    if (fullReply.length > maxLength) {
+      const firstPart = fullReply.slice(0, maxLength);
+      const secondPart = fullReply.slice(maxLength);
+
+      session.context.pendingReply = secondPart; // Stocke la partie restante
+
+      return res.json({
+        reply: `${firstPart}\n\nSouhaitez-vous plus de détails ? Répondez par "oui" pour continuer.`,
+      });
+    }
+
+    return res.json({ reply: fullReply });
   } catch (error) {
     console.error("Erreur OpenAI :", error);
     return res.status(500).json({ error: "Erreur lors de la génération de la réponse." });
@@ -99,5 +114,6 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
