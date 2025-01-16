@@ -1,32 +1,3 @@
-// Chargement des dépendances
-require("dotenv").config(); // Charge les variables d'environnement
-const express = require("express");
-const bodyParser = require("body-parser");
-const { Configuration, OpenAIApi } = require("openai");
-const cors = require("cors");
-
-const app = express();
-const port = 3000;
-
-// Configuration de l'API OpenAI
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(configuration);
-
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
-
-// Stocke les sessions utilisateur
-const sessions = {};
-
-// Route GET pour la racine "/"
-app.get("/", (req, res) => {
-  res.send("Le serveur est opérationnel ! 🌟");
-});
-
-// Endpoint principal
 app.post("/api/chat", async (req, res) => {
   const userId = req.body.userId || "default"; // Identifie l'utilisateur
   if (!sessions[userId]) {
@@ -37,7 +8,14 @@ app.post("/api/chat", async (req, res) => {
   const userMessage = req.body.message;
   const conversation = req.body.conversation || []; // Conserve la conversation pour un contexte complet
 
-  // Analyse dynamique pour détecter les informations manquantes
+  // Si une réponse est attendue, l'ajouter au contexte
+  if (session.waitingForAnswer) {
+    session.context[session.waitingForAnswer] = userMessage; // Enregistre la réponse
+    session.waitingForAnswer = null; // Réinitialise l'attente
+    return res.json({ reply: "Merci pour ces précisions ! Que puis-je faire pour vous maintenant ?" });
+  }
+
+  // Questions dynamiques pour compléter le contexte
   const dynamicQuestions = [
     { key: "age", question: "Quel âge a votre enfant ?" },
     { key: "gender", question: "Votre enfant est-il une fille ou un garçon ?" },
@@ -45,20 +23,7 @@ app.post("/api/chat", async (req, res) => {
     { key: "single_parent", question: "Vivez-vous dans une famille monoparentale ?" },
   ];
 
-  if (session.waitingForAnswer) {
-    // Si une réponse est attendue, l'ajouter au contexte
-    session.context[session.waitingForAnswer] = userMessage;
-    session.waitingForAnswer = null; // Réinitialise l'attente
-
-    // Passe à la prochaine information manquante ou répond à la question initiale
-    const nextMissingInfo = dynamicQuestions.find((q) => !session.context[q.key]);
-    if (nextMissingInfo) {
-      session.waitingForAnswer = nextMissingInfo.key;
-      return res.json({ reply: nextMissingInfo.question });
-    }
-  }
-
-  // Vérifie si des informations sont nécessaires
+  // Vérifie les informations manquantes
   const missingInfo = dynamicQuestions.find((q) => !session.context[q.key]);
 
   if (missingInfo) {
@@ -66,15 +31,15 @@ app.post("/api/chat", async (req, res) => {
     return res.json({ reply: missingInfo.question });
   }
 
-  // Préparation du message complet avec le contexte
+  // Préparation du message pour OpenAI
   const messages = [
     {
       role: "system",
       content: `
-      Tu es NORR, un assistant parental chaleureux et compatissant, inspiré par l'approche de Lulumineuse, Emmanuelle piquet et isabelle filiiozat. 
-      Ton rôle est d'accompagner les parents avec bienveillance et de les aider à intégrer la spiritualité 
+      Tu es NORR, un assistant parental chaleureux et compatissant, inspiré par l'approche spirituelle de Lulumineuse, de Emmanuelle piquet, des dernières découvertes en neurosciences et d'isabelle filiozat.
+      Ton rôle est d'accompagner les parents avec bienveillance et de manière démocratique et de les aider à intégrer la spiritualité 
       dans leur quotidien familial. Sois clair, direct, engageant et propose des solutions pratiques tout 
-      en inspirant confiance et sérénité, et un peu d'humour quand cela est bienvenue. 
+      en inspirant confiance et sérénité. Tu peux ajouter une touche d'humour quand cela te semble propice. 
 
       Voici les informations utilisateur disponibles :
       - Âge : ${session.context.age || "non spécifié"}
@@ -85,8 +50,7 @@ app.post("/api/chat", async (req, res) => {
       Souviens-toi, tu es là pour soutenir, rassurer et guider les parents avec respect et empathie.
       `,
     },
-    ...conversation, // Intègre la conversation complète reçue
-    { role: "user", content: userMessage }, // Ajoute la demande actuelle de l'utilisateur
+    ...conversation,
   ];
 
   try {
@@ -102,10 +66,6 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-// Démarrage du serveur
-app.listen(port, () => {
-  console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
-});
 
 
 
