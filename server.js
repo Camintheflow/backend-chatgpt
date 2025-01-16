@@ -1,5 +1,5 @@
 // Chargement des dépendances
-require("dotenv").config();
+require("dotenv").config(); // Charge les variables d'environnement
 const express = require("express");
 const bodyParser = require("body-parser");
 const { Configuration, OpenAIApi } = require("openai");
@@ -34,7 +34,7 @@ app.post("/api/chat", async (req, res) => {
   }
 
   const session = sessions[userId];
-  const userMessage = req.body.message.trim();
+  const userMessage = req.body.message;
   const conversation = req.body.conversation || []; // Conserve la conversation pour un contexte complet
 
   // Analyse dynamique pour détecter les informations manquantes
@@ -50,19 +50,19 @@ app.post("/api/chat", async (req, res) => {
     session.context[session.waitingForAnswer] = userMessage;
     session.waitingForAnswer = null; // Réinitialise l'attente
 
-    // Vérifie s'il reste des informations manquantes
-    const nextMissingInfo = dynamicQuestions.find((q) => !session.context[q.key]);
-    if (nextMissingInfo) {
-      session.waitingForAnswer = nextMissingInfo.key;
-      return res.json({ reply: nextMissingInfo.question });
+    if (session.context.pendingReply) {
+      // Envoie la suite de la réponse s'il y en a une
+      const nextPart = session.context.pendingReply;
+      session.context.pendingReply = null;
+      return res.json({ reply: nextPart });
     }
 
-    // Sinon, continue avec la demande initiale
-    conversation.push({ role: "user", content: userMessage });
+    return res.json({ reply: "Merci pour ces précisions ! Que puis-je faire pour vous maintenant ?" });
   }
 
   // Vérifie si des informations sont nécessaires
   const missingInfo = dynamicQuestions.find((q) => !session.context[q.key]);
+
   if (missingInfo) {
     session.waitingForAnswer = missingInfo.key;
     return res.json({ reply: missingInfo.question });
@@ -87,8 +87,7 @@ app.post("/api/chat", async (req, res) => {
       Souviens-toi, tu es là pour soutenir, rassurer et guider les parents avec respect et empathie.
       `,
     },
-    ...conversation,
-    { role: "user", content: userMessage }, // Ajoute la demande actuelle de l'utilisateur
+    ...conversation, // Intègre la conversation complète reçue
   ];
 
   try {
@@ -97,7 +96,22 @@ app.post("/api/chat", async (req, res) => {
       messages: messages,
     });
 
-    return res.json({ reply: completion.data.choices[0].message.content });
+    const fullReply = completion.data.choices[0].message.content;
+
+    // Diviser la réponse si elle est longue
+    const maxLength = 300; // Limite de caractères par réponse
+    if (fullReply.length > maxLength) {
+      const firstPart = fullReply.slice(0, maxLength);
+      const secondPart = fullReply.slice(maxLength);
+
+      session.context.pendingReply = secondPart; // Stocke la partie restante
+
+      return res.json({
+        reply: `${firstPart}\n\nSouhaitez-vous plus de détails ? Répondez par "oui" pour continuer.`,
+      });
+    }
+
+    return res.json({ reply: fullReply });
   } catch (error) {
     console.error("Erreur OpenAI :", error);
     return res.status(500).json({ error: "Erreur lors de la génération de la réponse." });
@@ -108,3 +122,4 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
