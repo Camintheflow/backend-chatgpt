@@ -1,4 +1,4 @@
- // Chargement des dépendances
+// Chargement des dépendances
 require("dotenv").config(); // Charge les variables d'environnement
 const express = require("express");
 const bodyParser = require("body-parser");
@@ -21,7 +21,7 @@ app.use(bodyParser.json());
 // Stocke les sessions utilisateur
 const sessions = {};
 
-// Route GET pour la racine "/"
+// Route GET pour vérifier que le serveur fonctionne
 app.get("/", (req, res) => {
   res.send("Le serveur est opérationnel ! 🌟");
 });
@@ -72,7 +72,7 @@ app.post("/api/chat", async (req, res) => {
   const messages = [
     {
       role: "system",
-      content: 
+      content: `
       Tu es NORR, un assistant parental chaleureux et compatissant, inspiré par l'approche de Lulumineuse. 
       Ton rôle est d'accompagner les parents avec bienveillance et de les aider à intégrer la spiritualité 
       dans leur quotidien familial. Sois clair, direct, engageant et propose des solutions pratiques tout 
@@ -85,7 +85,7 @@ app.post("/api/chat", async (req, res) => {
       - Famille monoparentale : ${session.context.single_parent || "non spécifié"}
 
       Souviens-toi, tu es là pour soutenir, rassurer et guider les parents avec respect et empathie.
-      ,
+      `,
     },
     ...conversation, // Intègre la conversation complète reçue
   ];
@@ -107,7 +107,7 @@ app.post("/api/chat", async (req, res) => {
       session.context.pendingReply = secondPart; // Stocke la partie restante
 
       return res.json({
-        reply: ${firstPart}\n\nSouhaitez-vous plus de détails ? Répondez par "oui" pour continuer.,
+        reply: `${firstPart}\n\nSouhaitez-vous plus de détails ? Répondez par "oui" pour continuer.`,
       });
     }
 
@@ -120,8 +120,9 @@ app.post("/api/chat", async (req, res) => {
 
 // Démarrage du serveur
 app.listen(port, () => {
-  console.log(Serveur en cours d'exécution sur http://localhost:${port});
+  console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
