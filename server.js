@@ -34,8 +34,13 @@ app.post("/api/chat", async (req, res) => {
   }
 
   const session = sessions[userId];
-  const userMessage = req.body.message;
+  const userMessage = req.body.message?.trim();
   const conversation = req.body.conversation || []; // Conserve la conversation pour un contexte complet
+
+  // Si l'utilisateur n'a pas posé de question claire, ne pas demander d'informations inutiles
+  if (!userMessage || userMessage.length === 0) {
+    return res.json({ reply: "Bonjour ! Comment puis-je vous aider aujourd'hui ? 😊" });
+  }
 
   // Analyse dynamique pour détecter les informations manquantes
   const dynamicQuestions = [
@@ -60,8 +65,13 @@ app.post("/api/chat", async (req, res) => {
     return res.json({ reply: "Merci pour ces précisions ! Que puis-je faire pour vous maintenant ?" });
   }
 
-  // Vérifie si des informations sont nécessaires
-  const missingInfo = dynamicQuestions.find((q) => !session.context[q.key]);
+  // Détermine si des informations manquent et sont pertinentes pour la réponse
+  const isRequestForChildInfo = userMessage.toLowerCase().includes("enfant") || 
+                                userMessage.toLowerCase().includes("fils") || 
+                                userMessage.toLowerCase().includes("fille");
+  const missingInfo = isRequestForChildInfo
+    ? dynamicQuestions.find((q) => !session.context[q.key])
+    : null;
 
   if (missingInfo) {
     session.waitingForAnswer = missingInfo.key;
@@ -87,6 +97,7 @@ app.post("/api/chat", async (req, res) => {
       Souviens-toi, tu es là pour soutenir, rassurer et guider les parents avec respect et empathie.
       `,
     },
+    { role: "user", content: userMessage }, // Utilise directement le message utilisateur
     ...conversation, // Intègre la conversation complète reçue
   ];
 
@@ -122,6 +133,7 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
