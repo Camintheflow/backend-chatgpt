@@ -30,12 +30,16 @@ app.get("/", (req, res) => {
 app.post("/api/chat", async (req, res) => {
   const userId = req.body.userId || "default"; // Identifie l'utilisateur
   if (!sessions[userId]) {
-    sessions[userId] = { context: {}, waitingForAnswer: null }; // Initialise une nouvelle session
+    sessions[userId] = { context: {}, waitingForAnswer: null, lastUserMessage: null }; // Initialise une nouvelle session
   }
 
   const session = sessions[userId];
   const userMessage = req.body.message;
   const conversation = req.body.conversation || []; // Conserve la conversation pour un contexte complet
+
+  if (!session.lastUserMessage) {
+    session.lastUserMessage = userMessage; // Stocke le message initial de l'utilisateur
+  }
 
   // Analyse dynamique pour détecter les informations manquantes
   const dynamicQuestions = [
@@ -55,6 +59,13 @@ app.post("/api/chat", async (req, res) => {
       const nextPart = session.context.pendingReply;
       session.context.pendingReply = null;
       return res.json({ reply: nextPart });
+    }
+
+    // Si une réponse est en attente, poser une nouvelle question ou continuer la réponse
+    const missingInfo = dynamicQuestions.find((q) => !session.context[q.key]);
+    if (missingInfo) {
+      session.waitingForAnswer = missingInfo.key;
+      return res.json({ reply: missingInfo.question });
     }
 
     return res.json({ reply: "Merci pour ces précisions ! Que puis-je faire pour vous maintenant ?" });
@@ -87,6 +98,7 @@ app.post("/api/chat", async (req, res) => {
       Souviens-toi, tu es là pour soutenir, rassurer et guider les parents avec respect et empathie.
       `,
     },
+    { role: "user", content: session.lastUserMessage }, // Reprend la question originale de l'utilisateur
     ...conversation, // Intègre la conversation complète reçue
   ];
 
@@ -122,5 +134,6 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
