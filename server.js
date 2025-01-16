@@ -76,6 +76,7 @@ app.post("/webhooks/customer-create", (req, res) => {
     console.error("Données manquantes dans le webhook");
     return res.status(400).send("Données manquantes");
   }
+  console.log(`Webhook reçu pour l'utilisateur avec email: ${email} et Shopify ID: ${id}`); // Affichage du log pour vérification
 
   // Vérifie si l'utilisateur existe déjà dans la base de données
   const query = `SELECT * FROM users WHERE email = ?`;
