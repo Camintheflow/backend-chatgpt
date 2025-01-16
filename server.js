@@ -1,4 +1,4 @@
-// Chargement des dépendances
+ // Chargement des dépendances
 require("dotenv").config(); // Charge les variables d'environnement
 const express = require("express");
 const bodyParser = require("body-parser");
@@ -49,6 +49,14 @@ app.post("/api/chat", async (req, res) => {
     // Si une réponse est attendue, l'ajouter au contexte
     session.context[session.waitingForAnswer] = userMessage;
     session.waitingForAnswer = null; // Réinitialise l'attente
+
+    if (session.context.pendingReply) {
+      // Envoie la suite de la réponse s'il y en a une
+      const nextPart = session.context.pendingReply;
+      session.context.pendingReply = null;
+      return res.json({ reply: nextPart });
+    }
+
     return res.json({ reply: "Merci pour ces précisions ! Que puis-je faire pour vous maintenant ?" });
   }
 
