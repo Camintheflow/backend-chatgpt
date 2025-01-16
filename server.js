@@ -1,86 +1,82 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const sendButton = document.getElementById("send-button");
-  const userInput = document.getElementById("user-input");
-  const chatBox = document.getElementById("chat-box");
-  const loadingIndicator = document.getElementById("loading-indicator");
+// Chargement des dépendances
+require("dotenv").config(); // Charge les variables d'environnement
+const express = require("express");
+const bodyParser = require("body-parser");
+const { Configuration, OpenAIApi } = require("openai");
+const cors = require("cors");
+const { v4: uuidv4 } = require("uuid"); // Import du générateur d'UUID
 
-  if (chatBox.dataset.initialized === "true") {
-    console.warn("Le script a déjà été initialisé. Annulation.");
-    return;
+const app = express();
+const port = 3000;
+
+// Configuration de l'API OpenAI
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+const openai = new OpenAIApi(configuration);
+
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+
+// Stocke les sessions utilisateur anonymes en mémoire
+const sessions = {};
+
+// Route GET pour la racine "/"
+app.get("/", (req, res) => {
+  res.send("Le serveur est opérationnel ! 🌟");
+});
+
+// Endpoint principal
+app.post("/api/chat", async (req, res) => {
+  try {
+    // Récupération ou création de l'identifiant utilisateur
+    const userId = req.body.userId || uuidv4(); // Si pas d'ID envoyé, on génère un UUID
+    if (!sessions[userId]) {
+      sessions[userId] = { conversation: [] }; // Initialise une nouvelle session
+    }
+
+    const session = sessions[userId];
+    const userMessage = req.body.message;
+
+    // Ajouter le message de l'utilisateur à la session
+    session.conversation.push({ role: "user", content: userMessage });
+
+    // Préparation des messages pour l'API OpenAI
+    const messages = [
+      {
+        role: "system",
+        content: `
+        Tu es NORR, un assistant parental chaleureux et compatissant. 
+        Ton rôle est d'accompagner les parents avec bienveillance et de les aider à gérer leurs défis familiaux.
+        Sois clair, direct et engageant. Tu t'inspires de Lulumineuse, Emmanuelle piquet et isabelle filiozat. Tu peux également avoir un ton humoristique quand cela le permet. 
+        `,
+      },
+      ...session.conversation, // Intègre la conversation complète pour le contexte
+    ];
+
+    // Appel à l'API OpenAI
+    const completion = await openai.createChatCompletion({
+      model: "gpt-4-turbo",
+      messages: messages,
+    });
+
+    const reply = completion.data.choices[0].message.content;
+
+    // Ajouter la réponse de NORR à la session
+    session.conversation.push({ role: "assistant", content: reply });
+
+    // Réponse au client
+    res.json({ reply, userId }); // Retourne également l'UUID pour réutilisation
+  } catch (error) {
+    console.error("Erreur OpenAI :", error.message);
+    res.status(500).json({ error: "Erreur lors de la génération de la réponse." });
   }
+});
 
-  chatBox.dataset.initialized = "true";
-
-  let conversation = [];
-  let userId = localStorage.getItem("norr_user_id") || null; // Récupère l'ID si déjà généré
-
-  const scrollToBottom = () => {
-    chatBox.scrollTop = chatBox.scrollHeight;
-  };
-
-  const displayWelcomeMessage = () => {
-    const welcomeMessage =
-      "Bonjour je suis Norr ! Comment puis-je vous accompagner dans votre aventure parentale ? 😊";
-    chatBox.innerHTML += `<p class="norr-message"><strong>NORR :</strong> ${welcomeMessage}</p>`;
-    scrollToBottom();
-  };
-
-  const sendMessage = async () => {
-    const message = userInput.value.trim();
-
-    if (!message) {
-      console.warn("Message vide. Aucune requête envoyée.");
-      return;
-    }
-
-    chatBox.innerHTML += `<p class="user-message"><strong>Vous :</strong> ${message}</p>`;
-    conversation.push({ role: "user", content: message });
-    userInput.value = "";
-    scrollToBottom();
-
-    loadingIndicator.style.display = "block";
-
-    try {
-      const response = await fetch("https://backend-chatgpt-anwj.onrender.com/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message, userId }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur serveur (${response.status})`);
-      }
-
-      const data = await response.json();
-      console.log("Réponse du serveur :", data);
-
-      if (data.userId && !userId) {
-        userId = data.userId; // Sauvegarde l'UUID reçu
-        localStorage.setItem("norr_user_id", userId); // Stocke l'UUID dans le navigateur
-      }
-
-      if (data.reply) {
-        chatBox.innerHTML += `<p class="norr-message"><strong>NORR :</strong> ${data.reply}</p>`;
-        scrollToBottom();
-      } else {
-        chatBox.innerHTML += `<p class="norr-message error">Une erreur est survenue. Réessayez plus tard.</p>`;
-      }
-    } catch (error) {
-      console.error("Erreur détectée :", error);
-      chatBox.innerHTML += `<p class="norr-message error">Impossible de se connecter au serveur.</p>`;
-    } finally {
-      loadingIndicator.style.display = "none";
-    }
-  };
-
-  sendButton.addEventListener("click", sendMessage);
-  userInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") sendMessage();
-  });
-
-  displayWelcomeMessage();
+// Démarrage du serveur
+app.listen(port, () => {
+  console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
 
 
