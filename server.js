@@ -83,7 +83,9 @@ app.post("/webhooks/customer-create", (req, res) => {
   db.get(query, [email], (err, user) => {
     if (err) {
       console.error("Erreur lors de la vérification de l'utilisateur :", err);
-      return res.status(500).send("Erreur serveur");
+      if (!res.headersSent) {
+        return res.status(500).send("Erreur serveur");
+      }
     }
 
     if (!user) {
@@ -92,23 +94,28 @@ app.post("/webhooks/customer-create", (req, res) => {
       db.run(insertQuery, [id, email], (err) => {
         if (err) {
           console.error("Erreur lors de la création de l'utilisateur :", err);
-          return res.status(500).send("Erreur serveur");
+          if (!res.headersSent) {
+            return res.status(500).send("Erreur serveur");
+          }
         }
         console.log(`Utilisateur ajouté avec Shopify ID : ${id}`);
       });
     } else {
       console.log("Utilisateur déjà existant dans la base de données.");
     }
-  });
 
-  // Répond à Shopify pour confirmer que le webhook a été traité
-  res.status(200).send("Webhook reçu avec succès");
+    // Répond à Shopify pour confirmer que le webhook a été traité
+    if (!res.headersSent) {
+      res.status(200).send("Webhook reçu avec succès");
+    }
+  });
 });
 
 // Démarrage du serveur
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
