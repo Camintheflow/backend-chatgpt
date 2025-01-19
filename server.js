@@ -25,6 +25,20 @@ const db = new sqlite3.Database("norr.db", (err) => {
     console.error("Erreur de connexion à la base SQLite :", err);
   } else {
     console.log("Connexion à la base de données SQLite réussie !");
+    
+    // Vérifie si la table "users" existe et la crée si nécessaire
+    db.run(`CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL,
+      password TEXT,
+      shopify_id TEXT
+    )`, (err) => {
+      if (err) {
+        console.error("Erreur lors de la création de la table users :", err);
+      } else {
+        console.log("Table 'users' vérifiée ou créée avec succès.");
+      }
+    });
   }
 });
 
@@ -115,6 +129,8 @@ app.post("/webhooks/customer-create", (req, res) => {
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
+
 
 
 
