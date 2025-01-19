@@ -68,6 +68,25 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
+// Route pour récupérer les enfants de l'utilisateur
+app.get("/api/getChildren", (req, res) => {
+  const userId = req.query.userId; // Récupère l'userId de la requête
+
+  if (!userId) {
+    return res.status(400).json({ error: "userId est requis" });
+  }
+
+  const query = `SELECT * FROM children WHERE user_id = ?`; // Recherche les enfants associés à l'utilisateur
+  db.all(query, [userId], (err, rows) => {
+    if (err) {
+      console.error("Erreur lors de la récupération des enfants :", err);
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+
+    res.json({ children: rows }); // Retourne les enfants en JSON
+  });
+});
+
 // Route pour recevoir le webhook "Customer Create"
 app.post("/webhooks/customer-create", (req, res) => {
   const { id, email } = req.body; // Récupère les données envoyées par Shopify
@@ -105,33 +124,11 @@ app.post("/webhooks/customer-create", (req, res) => {
   });
 });
 
-// Route pour récupérer les enfants d'un utilisateur
-app.get("/api/getChildren", (req, res) => {
-  const userId = req.query.userId; // Récupère l'ID utilisateur depuis la requête
-
-  if (!userId) {
-    return res.status(400).json({ error: "ID utilisateur requis." });
-  }
-
-  const query = `SELECT * FROM children WHERE user_id = ?`;
-  db.all(query, [userId], (err, rows) => {
-    if (err) {
-      console.error("Erreur lors de la récupération des enfants :", err);
-      return res.status(500).json({ error: "Erreur serveur" });
-    }
-
-    if (rows.length > 0) {
-      res.json({ children: rows });
-    } else {
-      res.status(404).json({ message: "Aucun enfant trouvé." });
-    }
-  });
-});
-
 // Démarrage du serveur
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
