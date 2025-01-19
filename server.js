@@ -39,6 +39,23 @@ const db = new sqlite3.Database("norr.db", (err) => {
         console.log("Table 'users' vérifiée ou créée avec succès.");
       }
     });
+
+    // Vérifie si la table "children" existe et la crée si nécessaire
+    db.run(`CREATE TABLE IF NOT EXISTS children (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      age INTEGER NOT NULL,
+      gender TEXT NOT NULL,
+      character TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )`, (err) => {
+      if (err) {
+        console.error("Erreur lors de la création de la table children :", err);
+      } else {
+        console.log("Table 'children' vérifiée ou créée avec succès.");
+      }
+    });
   }
 });
 
@@ -49,37 +66,31 @@ app.get("/", (req, res) => {
 
 // Endpoint principal (NORR)
 app.post("/api/chat", async (req, res) => {
+  const userId = req.body.userId; // Récupère l'ID de l'utilisateur connecté
   const userMessage = req.body.message;
   const conversation = req.body.conversation || []; // Conserve la conversation pour un contexte complet
 
-  // Contexte de style pour NORR
-  const messages = [
-    {
-      role: "system",
-      content: `
-        Tu es NORR, un assistant parental chaleureux et compatissant.
-        Ta mission est de répondre aux questions des parents avec bienveillance
-        et d'aider à intégrer des pratiques positives et spirituelles dans leur quotidien familial.
-        Sois clair, direct et propose des solutions pratiques, tout en restant engageant et rassurant.
-      `,
-    },
-    ...conversation, // Intègre la conversation complète reçue
-    { role: "user", content: userMessage },
-  ];
+  // Récupère les enfants de l'utilisateur depuis la base de données
+  const query = `SELECT * FROM children WHERE user_id = ?`;
+  db.all(query, [userId], (err, children) => {
+    if (err) {
+      console.error("Erreur lors de la récupération des enfants :", err);
+      return res.status(500).send("Erreur serveur");
+    }
 
-  try {
-    const completion = await openai.createChatCompletion({
-      model: "gpt-4-turbo",
-      messages: messages,
-    });
+    // Si des enfants existent, on prépare le message de sélection
+    if (children.length > 0) {
+      const childrenNames = children.map(child => child.name);
+      const message = `Pour quelle(s) enfant(s) souhaitez-vous poser une question ?\nOptions : ${childrenNames.join(", ")} ou "aucun" pour une question générale.`;
 
-    const fullReply = completion.data.choices[0].message.content;
-
-    res.json({ reply: fullReply });
-  } catch (error) {
-    console.error("Erreur OpenAI :", error);
-    res.status(500).json({ error: "Erreur lors de la génération de la réponse." });
-  }
+      return res.json({ 
+        reply: message,
+        children: childrenNames, // Liste des enfants pour affichage
+      });
+    } else {
+      return res.json({ reply: "Bonjour ! Vous n'avez pas encore ajouté d'enfants." });
+    }
+  });
 });
 
 // Route pour recevoir le webhook "Customer Create"
@@ -129,6 +140,7 @@ app.post("/webhooks/customer-create", (req, res) => {
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
