@@ -1,4 +1,3 @@
-
 // Chargement des dépendances
 require("dotenv").config(); // Charge les variables d'environnement
 const express = require("express");
@@ -147,3 +146,4 @@ app.post("/webhooks/customer-create", (req, res) => {
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
