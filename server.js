@@ -89,11 +89,15 @@ app.get("/api/getChildren", (req, res) => {
 
 // Route pour ajouter un enfant
 app.post("/api/addChild", (req, res) => {
-  const { userId, name, age, gender, character } = req.body;
+  const { userId, name, dateNaissance, gender, character } = req.body;
 
-  if (!userId || !name || !age || !gender || !character) {
+  if (!userId || !name || !dateNaissance || !gender || !character) {
     return res.status(400).json({ error: "Tous les champs sont requis" });
   }
+
+  // Calculer l'âge de l'enfant à partir de la date de naissance
+  const birthDate = new Date(dateNaissance);
+  const age = new Date().getFullYear() - birthDate.getFullYear();
 
   const query = `INSERT INTO children (user_id, name, age, gender, character) VALUES (?, ?, ?, ?, ?)`;
   db.run(query, [userId, name, age, gender, character], function (err) {
@@ -146,4 +150,5 @@ app.post("/webhooks/customer-create", (req, res) => {
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
