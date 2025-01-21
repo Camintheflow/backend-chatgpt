@@ -38,7 +38,6 @@ app.post("/api/chat", async (req, res) => {
   const userMessage = req.body.message;
   const conversation = req.body.conversation || []; // Conserve la conversation pour un contexte complet
 
-  // Contexte de style pour NORR
   const messages = [
     {
       role: "system",
@@ -49,7 +48,7 @@ app.post("/api/chat", async (req, res) => {
         Sois clair, direct et propose des solutions pratiques, tout en restant engageant et rassurant.
       `,
     },
-    ...conversation, // Intègre la conversation complète reçue
+    ...conversation,
     { role: "user", content: userMessage },
   ];
 
@@ -83,7 +82,7 @@ app.get("/api/getChildren", (req, res) => {
       return res.status(500).json({ error: "Erreur serveur" });
     }
 
-    res.json({ children: rows }); // Retourne les enfants en JSON
+    res.json({ children: rows });
   });
 });
 
@@ -95,7 +94,6 @@ app.post("/api/addChild", (req, res) => {
     return res.status(400).json({ error: "Tous les champs sont requis" });
   }
 
-  // Calculer l'âge de l'enfant à partir de la date de naissance
   const birthDate = new Date(dateNaissance);
   const age = new Date().getFullYear() - birthDate.getFullYear();
 
@@ -109,46 +107,10 @@ app.post("/api/addChild", (req, res) => {
   });
 });
 
-// Route pour recevoir le webhook "Customer Create"
-app.post("/webhooks/customer-create", (req, res) => {
-  const { id, email } = req.body; // Récupère les données envoyées par Shopify
-
-  if (!id || !email) {
-    console.error("Données manquantes dans le webhook");
-    return res.status(400).send("Données manquantes");
-  }
-  console.log(`Webhook reçu pour l'utilisateur avec email: ${email} et Shopify ID: ${id}`); // Affichage du log pour vérification
-
-  // Vérifie si l'utilisateur existe déjà dans la base de données
-  const query = `SELECT * FROM users WHERE email = ?`;
-  db.get(query, [email], (err, user) => {
-    if (err) {
-      console.error("Erreur lors de la vérification de l'utilisateur :", err);
-      return res.status(500).send("Erreur serveur");
-    }
-
-    if (!user) {
-      // Si l'utilisateur n'existe pas, ajoute-le
-      const insertQuery = `INSERT INTO users (shopify_id, email) VALUES (?, ?)`;
-      db.run(insertQuery, [id, email], (err) => {
-        if (err) {
-          console.error("Erreur lors de la création de l'utilisateur :", err);
-          return res.status(500).send("Erreur serveur");
-        }
-        console.log(`Utilisateur ajouté avec Shopify ID : ${id}`);
-      });
-    } else {
-      console.log("Utilisateur déjà existant dans la base de données.");
-    }
-
-    // Répond à Shopify pour confirmer que le webhook a été traité
-    res.status(200).send("Webhook reçu avec succès");
-  });
-});
-
 // Démarrage du serveur
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
