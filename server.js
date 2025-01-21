@@ -1,3 +1,4 @@
+
 // Chargement des dépendances
 require("dotenv").config(); // Charge les variables d'environnement
 const express = require("express");
@@ -87,6 +88,24 @@ app.get("/api/getChildren", (req, res) => {
   });
 });
 
+// Route pour ajouter un enfant
+app.post("/api/addChild", (req, res) => {
+  const { userId, name, age, gender, character } = req.body;
+
+  if (!userId || !name || !age || !gender || !character) {
+    return res.status(400).json({ error: "Tous les champs sont requis" });
+  }
+
+  const query = `INSERT INTO children (user_id, name, age, gender, character) VALUES (?, ?, ?, ?, ?)`;
+  db.run(query, [userId, name, age, gender, character], function (err) {
+    if (err) {
+      console.error("Erreur lors de l'ajout de l'enfant :", err);
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+    res.status(200).json({ message: "Enfant ajouté avec succès", id: this.lastID });
+  });
+});
+
 // Route pour recevoir le webhook "Customer Create"
 app.post("/webhooks/customer-create", (req, res) => {
   const { id, email } = req.body; // Récupère les données envoyées par Shopify
@@ -128,13 +147,3 @@ app.post("/webhooks/customer-create", (req, res) => {
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
-
-
-
-
-
-
-
-
-
-
