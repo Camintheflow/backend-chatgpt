@@ -28,46 +28,6 @@ const db = new sqlite3.Database("norr.db", (err) => {
   }
 });
 
-// Route GET pour la racine "/"
-app.get("/", (req, res) => {
-  res.send("Le serveur est opérationnel ! 🌟");
-});
-
-// Endpoint principal (NORR)
-app.post("/api/chat", async (req, res) => {
-  const userMessage = req.body.message;
-  const conversation = req.body.conversation || []; // Conserve la conversation pour un contexte complet
-
-  // Contexte de style pour NORR
-  const messages = [
-    {
-      role: "system",
-      content: `
-        Tu es NORR, un assistant parental chaleureux et compatissant.
-        Ta mission est de répondre aux questions des parents avec bienveillance
-        et d'aider à intégrer des pratiques positives et spirituelles dans leur quotidien familial.
-        Sois clair, direct et propose des solutions pratiques, tout en restant engageant et rassurant.
-      `,
-    },
-    ...conversation, // Intègre la conversation complète reçue
-    { role: "user", content: userMessage },
-  ];
-
-  try {
-    const completion = await openai.createChatCompletion({
-      model: "gpt-4-turbo",
-      messages: messages,
-    });
-
-    const fullReply = completion.data.choices[0].message.content;
-
-    res.json({ reply: fullReply });
-  } catch (error) {
-    console.error("Erreur OpenAI :", error);
-    res.status(500).json({ error: "Erreur lors de la génération de la réponse." });
-  }
-});
-
 // Route pour récupérer les enfants de l'utilisateur
 app.get("/api/getChildren", (req, res) => {
   const userId = req.query.userId; // Récupère l'userId de la requête
@@ -113,6 +73,7 @@ app.post("/api/addChild", (req, res) => {
 app.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
