@@ -18,7 +18,7 @@ const openai = new OpenAIApi(configuration);
 app.use(cors());
 app.use(bodyParser.json());
 
-// Liste de questions alternatives pour éviter les répétitions
+// Liste de questions alternatives pour varier les relances
 const alternativeQuestions = [
   "Souhaitez-vous que je précise un point en particulier ?",
   "Y a-t-il une partie qui vous semble floue ?",
@@ -79,9 +79,14 @@ app.post("/api/chat", async (req, res) => {
     // ✅ Supprime toute occurrence de "Souhaitez-vous que je développe ?" si elle est déjà incluse
     fullReply = fullReply.replace(/Souhaitez-vous que je développe ?/g, "").trim();
 
+    // ✅ Ajout d'une meilleure détection des réponses longues
+    if (fullReply.split(" ").length > 50 && !fullReply.includes("Souhaitez-vous que je développe ?")) {
+      fullReply += "\n\n🤔 Souhaitez-vous que je développe ?";
+    }
+
     // ✅ Si l'utilisateur a demandé à développer, ajouter une **question alternative différente**
     if (isUserAskingForMore) {
-      fullReply += " 🤔 " + getRandomAlternativeQuestion();
+      fullReply += "\n\n🤔 " + getRandomAlternativeQuestion();
     }
 
     console.log("✅ Réponse générée :", fullReply);
