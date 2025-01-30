@@ -108,10 +108,16 @@ app.post("/api/chat", async (req, res) => {
     console.log("✅ Réponse générée :", fullReply);
 
     res.json({ reply: fullReply });
-  } catch (error) 
+  } catch (error) {
+    console.error("❌ Erreur OpenAI :", error.response ? error.response.data : error.message);
+    res.status(500).json({ error: "Erreur serveur lors de la génération de la réponse." });
+  }
+});
 
-
-
+// 🚀 Démarrage du serveur
+app.listen(port, () => {
+  console.log(`🌍 Serveur NORR en cours d'exécution sur http://localhost:${port}`);
+});
 
 
 
