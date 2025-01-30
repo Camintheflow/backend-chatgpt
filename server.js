@@ -39,7 +39,7 @@ app.post("/api/chat", async (req, res) => {
           Tu es NORR, un assistant parental chaleureux et compatissant.
           Ta mission est d'aider les parents avec bienveillance en intégrant des pratiques positives et spirituelles.
           ✅ Tes réponses doivent être courtes et directes (maximum 500 tokens).
-          ✅ Si la réponse est longue, ajoute "Souhaitez-vous que je développe ?" à la fin.
+          ✅ Si la réponse est longue, ajoute "Souhaitez-vous que je développe ?" à la fin, mais ne la répète pas.
         `,
       },
       ...req.body.conversation, 
@@ -52,9 +52,9 @@ app.post("/api/chat", async (req, res) => {
     });
 
     let fullReply = completion.data.choices[0].message.content;
-    
-    // Ajoute une proposition de continuation si la réponse est longue
-    if (fullReply.length > 300) {
+
+    // ✅ Éviter d'ajouter la phrase si elle est déjà présente
+    if (fullReply.length > 300 && !fullReply.includes("Souhaitez-vous que je développe ?")) {
       fullReply += " 🤔 Souhaitez-vous que je développe ?";
     }
 
@@ -71,6 +71,7 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`🌍 Serveur NORR en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
