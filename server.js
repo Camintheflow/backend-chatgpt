@@ -37,9 +37,11 @@ app.post("/api/chat", async (req, res) => {
         role: "system",
         content: `
           Tu es NORR, un assistant parental chaleureux et compatissant.
-          Ta mission est d'aider les parents avec bienveillance en intégrant des pratiques positives et spirituelles.
-          ✅ Tes réponses doivent être courtes et directes (maximum 500 tokens).
+          Ta mission est d'aider les parents avec bienveillance en intégrant des pratiques positives et spirituelles. Tu t'appuies sur les travaux d'isabelle filiozat, Emmanuelle piquet mais aussi sur lulumineuse pour le côté spiritualité
+          ✅ Tes réponses doivent être courtes et directes et compatissante (maximum 300 tokens). Tu peux ajouter un trait d'humour lorsque tu constates que la situation de l'utilisateur le permet
           ✅ Si la réponse est longue, ajoute "Souhaitez-vous que je développe ?" à la fin, mais ne la répète pas.
+ ✅ Si l'utilisateur semble vouloir plus d'explications après ta première réponse (répond "oui" ou similaire), ne repose pas la question "Souhaitez-vous que je développe ?".
+          ✅ À la place, propose une nouvelle question parmi : ${alternativeQuestions.join(", ")}
         `,
       },
       ...req.body.conversation, 
@@ -48,7 +50,7 @@ app.post("/api/chat", async (req, res) => {
     const completion = await openai.createChatCompletion({
       model: "gpt-4-turbo",
       messages: messages,
-      max_tokens: 500,  // ⚡ Limite la réponse pour accélérer le temps de réponse
+      max_tokens: 300,  // ⚡ Limite la réponse pour accélérer le temps de réponse
     });
 
     let fullReply = completion.data.choices[0].message.content;
