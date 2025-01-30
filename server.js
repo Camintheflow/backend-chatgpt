@@ -20,11 +20,11 @@ app.use(bodyParser.json());
 
 // Liste de questions alternatives pour varier les relances
 const alternativeQuestions = [
-  "✨ Souhaitez-vous que je précise un point en particulier ?",
-  "🤔 Y a-t-il une partie qui vous semble floue ?",
-  "📖 Voulez-vous un exemple concret ?",
-  "🔍 Besoin d'une explication plus détaillée sur un aspect précis ?",
-  "💡 Je peux approfondir certains éléments si vous le souhaitez, dites-moi lesquels.",
+  "Souhaitez-vous que je précise un point en particulier ?",
+  "Y a-t-il une partie qui vous semble floue ?",
+  "Voulez-vous un exemple concret ?",
+  "Besoin d'une explication plus détaillée sur un aspect précis ?",
+  "Je peux approfondir certains éléments si vous le souhaitez, dites-moi lesquels.",
 ];
 
 // Fonction pour choisir une question alternative de manière aléatoire
@@ -34,20 +34,20 @@ const getRandomAlternativeQuestion = () => {
 
 // Fonction pour améliorer la mise en page de la réponse de NORR
 const formatResponse = (text) => {
-  // Ajoute un saut de ligne après chaque point numéroté
-  text = text.replace(/(\d+\.)/g, "\n\n$1 "); 
+  // Ajoute deux sauts de ligne après chaque point numéroté pour aérer la lecture
+  text = text.replace(/(\d+\.)/g, "\n\n$1 ");
 
-  // Ajoute un saut de ligne avant chaque puce
+  // Ajoute un saut de ligne avant chaque liste à puces
   text = text.replace(/(- )/g, "\n• ");
 
   // Supprime les doubles sauts de ligne inutiles
   text = text.replace(/\n{2,}/g, "\n\n");
 
-  // Mise en valeur des mots-clés importants
-  text = text.replace(/important/gi, "⚠️ **important**");
-  text = text.replace(/conseil/gi, "💡 **conseil**");
-  text = text.replace(/exemple/gi, "📖 **exemple**");
-  text = text.replace(/solution/gi, "✅ **solution**");
+  // Mise en valeur des mots-clés importants (sans excès d'émojis)
+  text = text.replace(/important/gi, "**important**");
+  text = text.replace(/conseil/gi, "**conseil**");
+  text = text.replace(/exemple/gi, "**exemple**");
+  text = text.replace(/solution/gi, "**solution**");
 
   return text.trim();
 };
@@ -79,9 +79,9 @@ app.post("/api/chat", async (req, res) => {
           Tu t'appuies sur les travaux d'Isabelle Filiozat, Emmanuelle Piquet, mais aussi sur Lulumineuse pour le côté spiritualité.
 
           ✅ Tes réponses doivent être **bien structurées**, courtes et directes (maximum 300 tokens).  
-          ✅ Tu dois utiliser **des paragraphes clairs et des listes** (numérotées ou à puces).  
-          ✅ Ajoute des **emojis** pour rendre la lecture plus agréable (ex: 📖, 💡, ⚠️, 🔍, 😊).  
-          ✅ Si la réponse est longue, ajoute **"🤔 Souhaitez-vous que je développe ?"** à la fin, **mais ne la répète pas**.  
+          ✅ Utilise **des paragraphes clairs et des listes** (numérotées ou à puces).  
+          ✅ Limite l'usage des **émojis** pour ne pas surcharger la lecture.  
+          ✅ Si la réponse est longue, ajoute **"Souhaitez-vous que je développe ?"** à la fin, **mais ne la répète pas**.  
           ✅ Si l'utilisateur semble vouloir plus d'explications après ta première réponse (répond "oui" ou similaire), **ne repose pas la même question**, mais **choisis une question alternative** parmi :  
           ${alternativeQuestions.join("\n")}
         `,
@@ -102,7 +102,7 @@ app.post("/api/chat", async (req, res) => {
 
     // ✅ Ajout d'une meilleure détection des réponses longues
     if (fullReply.split(" ").length > 50 && !fullReply.includes("Souhaitez-vous que je développe ?")) {
-      fullReply += "\n\n🤔 Souhaitez-vous que je développe ?";
+      fullReply += "\n\nSouhaitez-vous que je développe ?";
     }
 
     // ✅ Si l'utilisateur a demandé à développer, ajouter une **question alternative différente**
@@ -123,6 +123,7 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`🌍 Serveur NORR en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
