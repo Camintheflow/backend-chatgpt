@@ -32,25 +32,30 @@ const getRandomAlternativeQuestion = () => {
   return alternativeQuestions[Math.floor(Math.random() * alternativeQuestions.length)];
 };
 
+// Fonction pour améliorer la mise en page de la réponse de NORR
+const formatResponse = (text) => {
+  // Ajoute un saut de ligne après chaque point numéroté
+  text = text.replace(/(\d+\.)/g, "\n\n$1 "); 
+
+  // Ajoute un saut de ligne avant chaque puce
+  text = text.replace(/(- )/g, "\n• ");
+
+  // Supprime les doubles sauts de ligne inutiles
+  text = text.replace(/\n{2,}/g, "\n\n");
+
+  // Mise en valeur des mots-clés importants
+  text = text.replace(/important/gi, "⚠️ **important**");
+  text = text.replace(/conseil/gi, "💡 **conseil**");
+  text = text.replace(/exemple/gi, "📖 **exemple**");
+  text = text.replace(/solution/gi, "✅ **solution**");
+
+  return text.trim();
+};
+
 // Route GET pour vérifier que le serveur fonctionne
 app.get("/", (req, res) => {
   res.send("🚀 Serveur NORR opérationnel !");
 });
-
-// Fonction pour améliorer la mise en page de la réponse de NORR
-const formatResponse = (text) => {
-  // Convertir les listes en format structuré
-  text = text.replace(/(\d+\.)/g, "\n$1"); // Ajoute un saut de ligne avant les listes numérotées
-  text = text.replace(/(- )/g, "\n• "); // Transforme les listes avec des puces
-  text = text.replace(/\n{2,}/g, "\n\n"); // Supprime les sauts de ligne multiples
-
-  // Ajoute des emojis pour rendre les réponses plus engageantes
-  text = text.replace(/important/gi, "⚠️ important");
-  text = text.replace(/conseil/gi, "💡 conseil");
-  text = text.replace(/exemple/gi, "📖 exemple");
-
-  return text.trim();
-};
 
 // Endpoint principal pour le chatbot
 app.post("/api/chat", async (req, res) => {
