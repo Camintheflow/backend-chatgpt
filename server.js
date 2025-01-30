@@ -18,6 +18,20 @@ const openai = new OpenAIApi(configuration);
 app.use(cors());
 app.use(bodyParser.json());
 
+// Liste de questions alternatives pour éviter les répétitions
+const alternativeQuestions = [
+  "Souhaitez-vous que je précise un point en particulier ?",
+  "Y a-t-il une partie qui vous semble floue ?",
+  "Voulez-vous un exemple concret ?",
+  "Besoin d'une explication plus détaillée sur un aspect précis ?",
+  "Je peux approfondir certains éléments si vous le souhaitez, dites-moi lesquels.",
+];
+
+// Fonction pour choisir une question alternative de manière aléatoire
+const getRandomAlternativeQuestion = () => {
+  return alternativeQuestions[Math.floor(Math.random() * alternativeQuestions.length)];
+};
+
 // Route GET pour vérifier que le serveur fonctionne
 app.get("/", (req, res) => {
   res.send("🚀 Serveur NORR opérationnel !");
@@ -31,17 +45,24 @@ app.post("/api/chat", async (req, res) => {
     return res.status(400).json({ error: "⛔ Le champ 'conversation' est requis et doit être un tableau." });
   }
 
+  // Vérifie si la dernière réponse de l'utilisateur est "oui"
+  const lastUserMessage = req.body.conversation[req.body.conversation.length - 1]?.content.toLowerCase();
+  let isUserAskingForMore = lastUserMessage && ["oui", "yes", "vas-y", "continue", "développe"].includes(lastUserMessage);
+
   try {
     const messages = [
       {
         role: "system",
         content: `
           Tu es NORR, un assistant parental chaleureux et compatissant.
-          Ta mission est d'aider les parents avec bienveillance en intégrant des pratiques positives et spirituelles. Tu t'appuies sur les travaux d'isabelle filiozat, Emmanuelle piquet mais aussi sur lulumineuse pour le côté spiritualité
-          ✅ Tes réponses doivent être courtes et directes et compatissante (maximum 300 tokens). Tu peux ajouter un trait d'humour lorsque tu constates que la situation de l'utilisateur le permet
-          ✅ Si la réponse est longue, ajoute "Souhaitez-vous que je développe ?" à la fin, mais ne la répète pas.
- ✅ Si l'utilisateur semble vouloir plus d'explications après ta première réponse (répond "oui" ou similaire), ne repose pas la question "Souhaitez-vous que je développe ?".
-          ✅ À la place, propose une nouvelle question parmi : ${alternativeQuestions.join(", ")}
+          Ta mission est d'aider les parents avec bienveillance en intégrant des pratiques positives et spirituelles. 
+          Tu t'appuies sur les travaux d'Isabelle Filiozat, Emmanuelle Piquet, mais aussi sur Lulumineuse pour le côté spiritualité.
+          
+          ✅ Tes réponses doivent être courtes, directes et compatissantes (maximum 300 tokens). 
+          ✅ Tu peux ajouter un trait d'humour lorsque tu constates que la situation de l'utilisateur le permet.
+          ✅ Si la réponse est longue, ajoute "Souhaitez-vous que je développe ?" à la fin, **mais ne la répète pas**.
+          ✅ Si l'utilisateur semble vouloir plus d'explications après ta première réponse (répond "oui" ou similaire), **ne repose pas la question "Souhaitez-vous que je développe ?"**.
+          ✅ À la place, propose une **nouvelle question aléatoire parmi :** ${alternativeQuestions.join(", ")}
         `,
       },
       ...req.body.conversation, 
@@ -55,9 +76,12 @@ app.post("/api/chat", async (req, res) => {
 
     let fullReply = completion.data.choices[0].message.content;
 
-    // ✅ Éviter d'ajouter la phrase si elle est déjà présente
-    if (fullReply.length > 300 && !fullReply.includes("Souhaitez-vous que je développe ?")) {
-      fullReply += " 🤔 Souhaitez-vous que je développe ?";
+    // ✅ Supprime toute occurrence de "Souhaitez-vous que je développe ?" si elle est déjà incluse
+    fullReply = fullReply.replace(/Souhaitez-vous que je développe ?/g, "").trim();
+
+    // ✅ Si l'utilisateur a demandé à développer, ajouter une **question alternative différente**
+    if (isUserAskingForMore) {
+      fullReply += " 🤔 " + getRandomAlternativeQuestion();
     }
 
     console.log("✅ Réponse générée :", fullReply);
