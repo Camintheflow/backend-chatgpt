@@ -23,12 +23,6 @@ app.get("/", (req, res) => {
   res.send("🚀 Serveur NORR opérationnel !");
 });
 
-// Vérifie si une question concerne un enfant et si l'âge est absent
-const needsAge = (conversation) => {
-  const lastMessage = conversation[conversation.length - 1]?.content.toLowerCase();
-  return lastMessage.includes("mon enfant") && !lastMessage.match(/\d+\s?ans/);
-};
-
 // Endpoint principal pour le chatbot
 app.post("/api/chat", async (req, res) => {
   console.log("📥 Requête reçue sur /api/chat :", req.body);
@@ -37,8 +31,14 @@ app.post("/api/chat", async (req, res) => {
     return res.status(400).json({ error: "⛔ Le champ 'conversation' est requis et doit être un tableau." });
   }
 
-  if (needsAge(req.body.conversation)) {
-    return res.json({ askAge: true });
+  // Vérifier si la question concerne un enfant et si l'âge est manquant
+  const userMessage = req.body.conversation[req.body.conversation.length - 1].content.toLowerCase();
+  const ageMentionné = /\b(\d+)\s?(an|ans)\b/.test(userMessage);
+
+  if (userMessage.includes("mon enfant") || userMessage.includes("ma fille") || userMessage.includes("mon fils")) {
+    if (!ageMentionné) {
+      return res.json({ reply: "Quel est l'âge de votre enfant pour que je puisse répondre plus précisément ?" });
+    }
   }
 
   try {
@@ -46,26 +46,37 @@ app.post("/api/chat", async (req, res) => {
       {
         role: "system",
         content: `
-          Tu es NORR, un assistant parental chaleureux et compatissant.
-          Ta mission est d'aider les parents avec bienveillance en intégrant des pratiques positives et spirituelles. 
-          Tu t'appuies sur les travaux d'Isabelle Filiozat, Emmanuelle Piquet mais aussi sur Lulumineuse pour le côté spiritualité.
-          ✅ Tes réponses doivent être courtes et directes et compatissantes (maximum 300 tokens).
-          ✅ Si la réponse est longue, ajoute "Souhaitez-vous que je développe ?" à la fin, mais ne la répète pas.
-          ✅ Si l'utilisateur semble vouloir plus d'explications après ta première réponse (répond "oui" ou similaire), ne repose pas la question "Souhaitez-vous que je développe ?".
-          ✅ À la place, propose une nouvelle question parmi : "Souhaitez-vous un exemple ?", "Besoin de précisions sur un point en particulier ?", "Je peux détailler davantage si vous le souhaitez.".
-          ✅ Si une question concerne un enfant et qu'aucun âge n'est mentionné, demande d'abord l'âge avant de répondre.
-        `,
+        Tu es **NORR**, un assistant parental bienveillant qui aide les parents en intégrant des pratiques éducatives positives et spirituelles.
+        
+        🎯 **Tes inspirations** :
+        - Tu t'appuies sur **Isabelle Filiozat** et **Emmanuelle Piquet** pour l'approche éducative et psychologique.
+        - Tu intègres aussi la vision spirituelle de **Lulumineuse**, en aidant les parents à accompagner leurs enfants sur un chemin de lumière et de compréhension de soi.
+
+        📝 **Règles de réponse** :
+        - **Tes réponses doivent être bien structurées** : utilise des **titres en gras**, des **numéros en emojis** (1️⃣, 2️⃣...) et **des sauts de ligne entre chaque point**.
+        - **Réponses concises et claires** (⚡ **maximum 300 tokens**).
+        - **Si tu es proche de la limite des 300 tokens**, **arrête-toi naturellement et demande** :  
+          👉 *"Souhaitez-vous que je continue ?"*
+        - **Si l'utilisateur répond 'oui'**, continue **là où tu t'es arrêté** sans redemander s'il veut poursuivre.
+      `,
       },
-      ...req.body.conversation,
+      ...req.body.conversation, 
     ];
 
     const completion = await openai.createChatCompletion({
       model: "gpt-4-turbo",
       messages: messages,
-      max_tokens: 300, 
+      max_tokens: 300,  // ⚡ Limite la réponse pour accélérer le temps de réponse
     });
 
     let fullReply = completion.data.choices[0].message.content;
+
+    // ✅ Anticiper la coupure en ajoutant une question avant d'atteindre 300 tokens
+    if (fullReply.length >= 280) {
+        fullReply += " [...] Souhaitez-vous que je continue ?";
+    }
+
+    console.log("✅ Réponse générée :", fullReply);
 
     res.json({ reply: fullReply });
   } catch (error) {
@@ -78,6 +89,7 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`🌍 Serveur NORR en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
