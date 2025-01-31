@@ -23,6 +23,14 @@ app.get("/", (req, res) => {
   res.send("🚀 Serveur NORR opérationnel !");
 });
 
+// Fonction de mise en forme des réponses (sauts de ligne, emojis numérotés)
+const formatResponse = (text) => {
+  return text
+    .replace(/(\d+)\./g, (match, number) => `\n\n${number}️⃣ **`) // Numéros en emoji + gras
+    .replace(/\*\*(.*?)\*\*/g, "**$1**") // Assurer le gras des titres
+    .replace(/\n/g, "<br>"); // Convertir les sauts de ligne en HTML
+};
+
 // Endpoint principal pour le chatbot
 app.post("/api/chat", async (req, res) => {
   console.log("📥 Requête reçue sur /api/chat :", req.body);
@@ -31,45 +39,46 @@ app.post("/api/chat", async (req, res) => {
     return res.status(400).json({ error: "⛔ Le champ 'conversation' est requis et doit être un tableau." });
   }
 
-  // Vérifier si la question concerne un enfant et si l'âge est manquant
-  const userMessage = req.body.conversation[req.body.conversation.length - 1].content.toLowerCase();
-  const ageMentionné = /\b(\d+)\s?(an|ans)\b/.test(userMessage);
+  const lastUserMessage = req.body.conversation
+    .filter(msg => msg.role === "user")
+    .pop()?.content || "";
 
-  if (userMessage.includes("mon enfant") || userMessage.includes("ma fille") || userMessage.includes("mon fils")) {
-    if (!ageMentionné) {
-      return res.json({ reply: "Quel est l'âge de votre enfant pour que je puisse répondre plus précisément ?" });
-    }
+  const userAgeMatch = lastUserMessage.match(/\b(\d+)\s*(ans|an)\b/);
+  const userAge = userAgeMatch ? parseInt(userAgeMatch[1]) : null;
+
+  if (!userAge && /mon enfant|mon fils|ma fille/i.test(lastUserMessage)) {
+    return res.json({ reply: "Quel est l'âge de votre enfant pour que je puisse répondre plus précisément ?" });
   }
 
   try {
     const messages = [
-  {
-    role: "system",
-    content: `
-      Tu es NORR, un assistant parental chaleureux et compatissant.
-      Tu es là pour aider les parents à naviguer dans leurs défis quotidiens avec bienveillance et clarté.
-      Tu t'appuies sur les travaux d'Isabelle Filiozat, Emmanuelle Piquet et Lulumineuse pour enrichir tes conseils avec des perspectives psychologiques et spirituelles.
+      {
+        role: "system",
+        content: `
+          Tu es NORR, un assistant parental chaleureux et compatissant.
+          Tu es là pour aider les parents à naviguer dans leurs défis quotidiens avec bienveillance et clarté.
+          Tu t'appuies sur les travaux d'Isabelle Filiozat, Emmanuelle Piquet et Lulumineuse pour enrichir tes conseils avec des perspectives psychologiques et spirituelles.
 
-      🎯 **Objectifs de ton discours :**
-      - Reste **naturel et humain**, évite un ton trop académique ou mécanique.
-      - **Engage-toi émotionnellement** : montre de l'empathie et fais sentir à l'utilisateur qu'il est compris.
-      - **Utilise un langage fluide et accessible** : évite les longues explications trop didactiques.
-      - **Pose des questions pour inviter l'utilisateur à interagir** plutôt que de donner une réponse complète d’un coup.
-      
-      **Exemples de tournures naturelles** :
-      - "Ah, c'est une situation délicate ! Je comprends que ça puisse être frustrant..."
-      - "Je vois, et vous avez déjà essayé quelque chose pour gérer ça ?"
-      - "Un truc qui marche souvent, c’est..."
-      - "Vous aimeriez explorer cette piste ensemble ?"
+          🎯 **Objectifs de ton discours :**
+          - Reste **naturel et humain**, évite un ton trop académique ou mécanique.
+          - **Engage-toi émotionnellement** : montre de l'empathie et fais sentir à l'utilisateur qu'il est compris.
+          - **Utilise un langage fluide et accessible** : évite les longues explications trop didactiques.
+          - **Pose des questions pour inviter l'utilisateur à interagir** plutôt que de donner une réponse complète d’un coup.
+          
+          ✅ **Exemples de tournures naturelles** :
+          - "Ah, c'est une situation délicate ! Je comprends que ça puisse être frustrant..."
+          - "Je vois, et vous avez déjà essayé quelque chose pour gérer ça ?"
+          - "Un truc qui marche souvent, c’est..."
+          - "Vous aimeriez explorer cette piste ensemble ?"
 
-      ✅ **Règles supplémentaires :**
-      - Si la réponse risque d'être longue, demande avant : "Souhaitez-vous que je développe cette idée ?"
-      - Si l'utilisateur donne un âge approximatif (ex: "vers 5 ans"), demande un âge précis.
-    `,
-  },
-  ...req.body.conversation, 
-];
-
+          ✅ **Règles supplémentaires :**
+          - Si la réponse risque d'être trop longue, demande avant : "Souhaitez-vous que je développe cette idée ?"
+          - Si l'utilisateur donne un âge approximatif (ex: "vers 5 ans"), demande un âge précis.
+          - Formate la réponse avec des numéros en emoji (1️⃣, 2️⃣, etc.), mets les titres en **gras**, et ajoute des sauts de ligne clairs entre les paragraphes pour une lecture fluide.
+        `,
+      },
+      ...req.body.conversation, 
+    ];
 
     const completion = await openai.createChatCompletion({
       model: "gpt-4-turbo",
@@ -79,14 +88,17 @@ app.post("/api/chat", async (req, res) => {
 
     let fullReply = completion.data.choices[0].message.content;
 
-    // ✅ Anticiper la coupure en ajoutant une question avant d'atteindre 300 tokens
-    if (fullReply.length >= 280) {
-        fullReply += " [...] Souhaitez-vous que je continue ?";
+    // ✅ Anticipation si NORR approche la limite des tokens
+    if (fullReply.length > 280 && !fullReply.includes("Souhaitez-vous que je développe ?")) {
+      fullReply += "\n\n🔹 Souhaitez-vous que je développe ?";
     }
 
-    console.log("✅ Réponse générée :", fullReply);
+    // ✅ Appliquer la mise en forme
+    fullReply = formatResponse(fullReply);
 
+    console.log("✅ Réponse générée :", fullReply);
     res.json({ reply: fullReply });
+
   } catch (error) {
     console.error("❌ Erreur OpenAI :", error.response ? error.response.data : error.message);
     res.status(500).json({ error: "Erreur serveur lors de la génération de la réponse." });
@@ -97,6 +109,7 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`🌍 Serveur NORR en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
