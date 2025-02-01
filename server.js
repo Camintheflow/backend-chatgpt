@@ -18,21 +18,36 @@ const openai = new OpenAIApi(configuration);
 app.use(cors());
 app.use(bodyParser.json());
 
-// Liste de questions alternatives adaptées
-const alternativeQuestions = [
-  "Avez-vous déjà essayé une approche différente ?",
-  "Comment réagit-il en général dans ce genre de situation ?",
-  "Y a-t-il un moment où cela se passe mieux pour lui ?",
-  "Comment aimeriez-vous que cela évolue ?",
-  "Quelle est votre plus grande inquiétude à ce sujet ?",
-  "Que ressentez-vous face à cette situation ?",
-];
-
 // Vérifier si une question concerne un enfant sans âge précisé
 function needsAgeClarification(userMessage) {
-  const childKeywords = ["mon enfant", "ma fille", "mon fils", "mon bébé"];
+  const childKeywords = ["mon enfant", "ma fille", "mon fils", "mon bébé", "il", "elle"];
   return childKeywords.some((word) => userMessage.toLowerCase().includes(word));
 }
+
+// Détecter si l'utilisateur parle d'un enfant et identifier son genre
+function detectChildGender(userMessage) {
+  const femaleKeywords = ["elle", "ma fille", "ma petite", "ma princesse"];
+  const maleKeywords = ["il", "mon fils", "mon petit", "mon garçon"];
+
+  let gender = "neutre"; // Par défaut, si rien n'est précisé
+
+  if (femaleKeywords.some((word) => userMessage.toLowerCase().includes(word))) {
+    gender = "fille";
+  } else if (maleKeywords.some((word) => userMessage.toLowerCase().includes(word))) {
+    gender = "garçon";
+  }
+
+  return gender;
+}
+
+// Liste de suggestions concrètes que NORR peut ajouter à la fin
+const suggestions = [
+  "Vous pourriez essayer cela sur plusieurs jours et voir comment il/elle réagit.",
+  "Pourquoi ne pas tester cette approche lors de votre prochaine discussion ?",
+  "Vous pouvez aussi observer s'il/elle réagit mieux dans un autre contexte.",
+  "N'hésitez pas à lui montrer un exemple concret pour l’aider à mieux comprendre.",
+  "Essayez cette méthode et ajustez en fonction de son ressenti.",
+];
 
 // Route GET pour vérifier que le serveur fonctionne
 app.get("/", (req, res) => {
@@ -48,6 +63,7 @@ app.post("/api/chat", async (req, res) => {
   }
 
   const userMessage = req.body.conversation.slice(-1)[0].content;
+  const gender = detectChildGender(userMessage);
 
   // Vérification de l'âge de l'enfant avant de répondre
   if (needsAgeClarification(userMessage) && !req.body.age) {
@@ -63,12 +79,12 @@ app.post("/api/chat", async (req, res) => {
           Ta mission est d'aider les parents avec bienveillance en intégrant des pratiques positives et spirituelles.
           Tu t'appuies sur les travaux d'Isabelle Filiozat, Emmanuelle Piquet et Lulumineuse.
           ✅ Tes réponses doivent être courtes, directes et compatissantes (maximum 300 tokens).
-          ✅ Si la réponse est trop longue, termine une idée complète avant de proposer de poursuivre.
-          ✅ Si l'utilisateur semble vouloir plus d'explications, propose une question pertinente parmi :
-          ${alternativeQuestions.join(", ")}.
-          ✅ Utilise un ton naturel et humain, évite un style trop didactique.
+          ✅ Si la réponse est trop longue, termine une idée complète avant de proposer une suggestion supplémentaire.
+          ✅ Si l'enfant est un garçon, utilise "il". Si c'est une fille, utilise "elle". Si le genre est inconnu, utilise "votre enfant".
+          ✅ Propose une solution concrète en fin de réponse, en sélectionnant une suggestion appropriée.
         `,
       },
+      { role: "user", content: `L'enfant est un(e) ${gender}` }, // Ajoute l'information du genre
       ...req.body.conversation,
     ];
 
@@ -80,10 +96,12 @@ app.post("/api/chat", async (req, res) => {
 
     let fullReply = completion.data.choices[0].message.content;
 
-    // Détecter si la réponse est trop longue et proposer une suite avec une question adaptée
-    if (fullReply.length > 280) {
-      const randomQuestion = alternativeQuestions[Math.floor(Math.random() * alternativeQuestions.length)];
-      fullReply += `\n\n🔹 ${randomQuestion}`;
+    // Sélectionner une suggestion pertinente
+    const suggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
+
+    // Ajouter la suggestion si la réponse est déjà bien développée
+    if (fullReply.length > 250) {
+      fullReply += `\n\n💡 ${suggestion}`;
     }
 
     console.log("✅ Réponse générée :", fullReply);
@@ -99,6 +117,7 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`🌍 Serveur NORR en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
