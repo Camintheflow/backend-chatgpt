@@ -44,21 +44,19 @@ function detectChildGender(userMessage) {
   return gender;
 }
 
-// Suggestions et approfondissements pertinents
-const deepeningQuestions = [
-  "Avez-vous remarqué un élément déclencheur particulier dans ce comportement ?",
-  "Comment votre enfant réagit-il quand vous abordez ce sujet avec lui/elle ?",
-  "Avez-vous essayé d’adopter une approche différente, et si oui, laquelle ?",
-  "Comment gérez-vous cette situation actuellement et qu'est-ce qui fonctionne le mieux ?",
-  "Qu'est-ce qui semble le plus difficile pour vous dans cette situation ?",
+// Liste de suggestions et de réconfort
+const comfortingMessages = [
+  "C'est normal de ressentir cela, et vous faites déjà de votre mieux. ❤️",
+  "Vous n'êtes pas seul(e) face à cette situation. Beaucoup de parents vivent cela.",
+  "L’important, c’est que votre enfant sente qu’il/elle est compris(e) et soutenu(e).",
+  "Prendre du recul est parfois difficile, mais vous êtes sur la bonne voie !",
 ];
 
 const practicalSolutions = [
-  "Une approche douce mais ferme peut aider votre enfant à mieux gérer ses émotions.",
-  "Vous pouvez lui proposer une alternative pour exprimer ce qu’il/elle ressent d’une autre manière.",
-  "Essayez d’expliquer calmement pourquoi son comportement pose problème et proposez-lui une solution.",
-  "Encouragez-le/la à verbaliser ses émotions plutôt que de les manifester par des comportements difficiles.",
-  "Vous pouvez également mettre en place un rituel ou un outil de gestion des émotions pour l’aider.",
+  "Et si vous lui proposiez une petite pause avant de revenir sur ce qui l’a frustré(e) ?",
+  "Un bon moyen d’aider votre enfant est d’utiliser des phrases comme 'Je vois que tu es frustré(e), comment veux-tu qu’on trouve une solution ensemble ?'",
+  "Les enfants ont parfois besoin d’un rituel pour mieux gérer leurs émotions, cela pourrait-il l’aider ?",
+  "Un simple câlin ou un moment de connexion peut suffire à apaiser la frustration.",
 ];
 
 // Route GET pour vérifier que le serveur fonctionne
@@ -87,15 +85,16 @@ app.post("/api/chat", async (req, res) => {
       {
         role: "system",
         content: `
-          Tu es NORR, un assistant parental bienveillant et compatissant.
-          Tu aides les parents à gérer des situations familiales en s’appuyant sur des approches de parentalité positive.
+          Tu es NORR, un assistant parental chaleureux et compatissant.
+          Ta priorité est d’aider les parents avec bienveillance et **de leur donner du réconfort**.
           Tu t'appuies sur les travaux d'Isabelle Filiozat, Emmanuelle Piquet et Lulumineuse.
-          ✅ Tes réponses doivent être claires, naturelles et fluides, sans donner l'impression d'une dissertation.
-          ✅ Évite de poser des questions inutiles, propose plutôt des solutions pertinentes et des suggestions adaptées.
-          ✅ Si la conversation nécessite plus de détails, pose une question en lien direct avec la situation.
-          ✅ Ne demande pas si l'utilisateur veut que tu continues : ajoute une question d'approfondissement pertinente ou une suggestion utile à la fin.
-          ✅ Si l’enfant est un garçon, utilise "il". Si c'est une fille, utilise "elle". Si le genre est inconnu, utilise "votre enfant".
-          ✅ Mets en forme tes réponses avec des titres en gras, des emojis numérotés pour les points clés, et des sauts de ligne pour une meilleure lisibilité.
+          ✅ Tes réponses doivent être **humaines**, comme un ami ou un conseiller bienveillant.
+          ✅ **Toujours commencer par montrer de l’empathie** pour la situation du parent.
+          ✅ **Ne pas faire un exposé**, mais **proposer des pistes concrètes et adaptées**.
+          ✅ **Rappeler au parent qu’il/elle fait déjà de son mieux**.
+          ✅ **Proposer une solution pertinente** ou **une question d'approfondissement utile**.
+          ✅ **Si l’enfant est un garçon, utiliser "il". Si c’est une fille, utiliser "elle"**.
+          ✅ **Garder une mise en forme claire** avec **titres en gras**, **numéros emoji** et **sauts de ligne**.
         `,
       },
       { role: "user", content: `L'enfant est un(e) ${gender}` },
@@ -116,16 +115,11 @@ app.post("/api/chat", async (req, res) => {
       .replace(/\*\*(.*?)\*\*/g, "**$1**") // Garder le gras
       .replace(/\n/g, "\n\n"); // Ajouter des sauts de ligne pour l’aération
 
-    // Sélectionner une question d'approfondissement pertinente
-    const question = deepeningQuestions[Math.floor(Math.random() * deepeningQuestions.length)];
+    // Ajouter un message de réconfort + une solution
+    const comforting = comfortingMessages[Math.floor(Math.random() * comfortingMessages.length)];
     const solution = practicalSolutions[Math.floor(Math.random() * practicalSolutions.length)];
 
-    // Ajouter une question ou une solution pour approfondir
-    if (fullReply.length > 250) {
-      fullReply += `\n\n💡 ${solution}`;
-    } else {
-      fullReply += `\n\n🔍 ${question}`;
-    }
+    fullReply = `💜 ${comforting}\n\n${fullReply}\n\n💡 ${solution}`;
 
     console.log("✅ Réponse générée :", fullReply);
 
@@ -140,6 +134,7 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`🌍 Serveur NORR en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
