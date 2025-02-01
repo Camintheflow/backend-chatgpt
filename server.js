@@ -21,6 +21,20 @@ app.use(bodyParser.json());
 // Stockage des réponses incomplètes (clé = user session, valeur = dernière réponse incomplète)
 let incompleteResponses = {};
 
+// Fonction pour **ne pas couper une phrase en plein milieu**
+const truncateAtFullSentence = (text, maxLength) => {
+  if (text.length <= maxLength) return text;
+  let truncated = text.slice(0, maxLength);
+  let lastPunctuation = Math.max(
+    truncated.lastIndexOf("."),
+    truncated.lastIndexOf("!"),
+    truncated.lastIndexOf("?")
+  );
+
+  if (lastPunctuation === -1) return truncated; // Si aucune ponctuation, on coupe à la limite max
+  return truncated.slice(0, lastPunctuation + 1); // Sinon, on coupe à la fin de la phrase
+};
+
 // Fonction de mise en forme des réponses
 const formatResponse = (text) => {
   return text
@@ -61,11 +75,15 @@ app.post("/api/chat", async (req, res) => {
         role: "system",
         content: `
           Tu es NORR, un assistant parental chaleureux et compatissant.
+          Tu es là pour aider les parents à naviguer dans leurs défis quotidiens avec bienveillance et clarté.
           Tu t'appuies sur les travaux d'Isabelle Filiozat, Emmanuelle Piquet et Lulumineuse pour enrichir tes conseils avec des perspectives psychologiques et spirituelles.
 
           🎯 **Objectifs de ton discours :**
-          - Reste **naturel et humain**, engage-toi émotionnellement.
-          - **Interagis** : Pose des questions au lieu de tout expliquer d’un coup.
+          - Reste **naturel et humain**, évite un ton trop académique ou mécanique.
+          - **Engage-toi émotionnellement** : montre de l'empathie et fais sentir à l'utilisateur qu'il est compris.
+          - **Utilise un langage fluide et accessible** : évite les longues explications trop didactiques.
+          - **Pose des questions pour inviter l'utilisateur à interagir** plutôt que de donner une réponse complète d’un coup
+      
           - **Si la réponse est coupée, demande si l'utilisateur veut que tu continues.**
           - **Formate les réponses** : emoji numérotés (1️⃣, 2️⃣...), titres en gras, sauts de ligne.
         `,
@@ -82,10 +100,13 @@ app.post("/api/chat", async (req, res) => {
     let fullReply = completion.data.choices[0].message.content;
     fullReply = formatResponse(fullReply);
 
-    // ✅ Anticipation des coupures
-    if (fullReply.length > 280) {
-      incompleteResponses[sessionId] = fullReply.slice(280); // Stocker la partie incomplète
-      fullReply = fullReply.slice(0, 280) + "<br><br>🔹 Souhaitez-vous que je développe ?";
+    // ✅ Vérifier si la réponse est trop longue et couper **uniquement à la fin d'une phrase**
+    const maxLength = 280;
+    if (fullReply.length > maxLength) {
+      let truncatedReply = truncateAtFullSentence(fullReply, maxLength);
+      incompleteResponses[sessionId] = fullReply.slice(truncatedReply.length).trim(); // Stocker la suite
+
+      fullReply = truncatedReply + "<br><br>🔹 Souhaitez-vous que je continue ?";
     } else {
       incompleteResponses[sessionId] = ""; // Réinitialiser si réponse complète
     }
@@ -103,6 +124,7 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`🌍 Serveur NORR en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
