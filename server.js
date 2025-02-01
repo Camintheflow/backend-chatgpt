@@ -18,12 +18,10 @@ const openai = new OpenAIApi(configuration);
 app.use(cors());
 app.use(bodyParser.json());
 
-// Route GET pour vérifier que le serveur fonctionne
-app.get("/", (req, res) => {
-  res.send("🚀 Serveur NORR opérationnel !");
-});
+// Stockage des réponses incomplètes (clé = user session, valeur = dernière réponse incomplète)
+let incompleteResponses = {};
 
-// Fonction de mise en forme des réponses (sauts de ligne, emojis numérotés)
+// Fonction de mise en forme des réponses
 const formatResponse = (text) => {
   return text
     .replace(/(\d+)\./g, (match, number) => `\n\n${number}️⃣ **`) // Numéros en emoji + gras
@@ -35,17 +33,24 @@ const formatResponse = (text) => {
 app.post("/api/chat", async (req, res) => {
   console.log("📥 Requête reçue sur /api/chat :", req.body);
 
-  if (!req.body.conversation || !Array.isArray(req.body.conversation)) {
+  const sessionId = req.body.sessionId || "default"; // Utiliser une session pour suivre les utilisateurs
+  const conversation = req.body.conversation || [];
+
+  if (!Array.isArray(conversation)) {
     return res.status(400).json({ error: "⛔ Le champ 'conversation' est requis et doit être un tableau." });
   }
 
-  const lastUserMessage = req.body.conversation
-    .filter(msg => msg.role === "user")
-    .pop()?.content || "";
-
+  const lastUserMessage = conversation.filter(msg => msg.role === "user").pop()?.content || "";
   const userAgeMatch = lastUserMessage.match(/\b(\d+)\s*(ans|an)\b/);
   const userAge = userAgeMatch ? parseInt(userAgeMatch[1]) : null;
 
+  // ✅ Si l'utilisateur répond "oui" et qu'une réponse incomplète est en attente → on reprend directement
+  if (/^(oui|continue|vas-y|développe|prolonge)/i.test(lastUserMessage) && incompleteResponses[sessionId]) {
+    console.log("🔄 Reprise de la réponse incomplète...");
+    return res.json({ reply: incompleteResponses[sessionId] });
+  }
+
+  // ✅ Si un enfant est mentionné mais sans âge, on demande son âge avant de répondre
   if (!userAge && /mon enfant|mon fils|ma fille/i.test(lastUserMessage)) {
     return res.json({ reply: "Quel est l'âge de votre enfant pour que je puisse répondre plus précisément ?" });
   }
@@ -56,45 +61,34 @@ app.post("/api/chat", async (req, res) => {
         role: "system",
         content: `
           Tu es NORR, un assistant parental chaleureux et compatissant.
-          Tu es là pour aider les parents à naviguer dans leurs défis quotidiens avec bienveillance et clarté.
           Tu t'appuies sur les travaux d'Isabelle Filiozat, Emmanuelle Piquet et Lulumineuse pour enrichir tes conseils avec des perspectives psychologiques et spirituelles.
 
           🎯 **Objectifs de ton discours :**
-          - Reste **naturel et humain**, évite un ton trop académique ou mécanique.
-          - **Engage-toi émotionnellement** : montre de l'empathie et fais sentir à l'utilisateur qu'il est compris.
-          - **Utilise un langage fluide et accessible** : évite les longues explications trop didactiques.
-          - **Pose des questions pour inviter l'utilisateur à interagir** plutôt que de donner une réponse complète d’un coup.
-          
-          ✅ **Exemples de tournures naturelles** :
-          - "Ah, c'est une situation délicate ! Je comprends que ça puisse être frustrant..."
-          - "Je vois, et vous avez déjà essayé quelque chose pour gérer ça ?"
-          - "Un truc qui marche souvent, c’est..."
-          - "Vous aimeriez explorer cette piste ensemble ?"
-
-          ✅ **Règles supplémentaires :**
-          - Si la réponse risque d'être trop longue, demande avant : "Souhaitez-vous que je développe cette idée ?"
-          - Si l'utilisateur donne un âge approximatif (ex: "vers 5 ans"), demande un âge précis.
-          - Formate la réponse avec des numéros en emoji (1️⃣, 2️⃣, etc.), mets les titres en **gras**, et ajoute des sauts de ligne clairs entre les paragraphes pour une lecture fluide.
+          - Reste **naturel et humain**, engage-toi émotionnellement.
+          - **Interagis** : Pose des questions au lieu de tout expliquer d’un coup.
+          - **Si la réponse est coupée, demande si l'utilisateur veut que tu continues.**
+          - **Formate les réponses** : emoji numérotés (1️⃣, 2️⃣...), titres en gras, sauts de ligne.
         `,
       },
-      ...req.body.conversation, 
+      ...conversation,
     ];
 
     const completion = await openai.createChatCompletion({
       model: "gpt-4-turbo",
       messages: messages,
-      max_tokens: 300,  // ⚡ Limite la réponse pour accélérer le temps de réponse
+      max_tokens: 300,
     });
 
     let fullReply = completion.data.choices[0].message.content;
-
-    // ✅ Anticipation si NORR approche la limite des tokens
-    if (fullReply.length > 280 && !fullReply.includes("Souhaitez-vous que je développe ?")) {
-      fullReply += "\n\n🔹 Souhaitez-vous que je développe ?";
-    }
-
-    // ✅ Appliquer la mise en forme
     fullReply = formatResponse(fullReply);
+
+    // ✅ Anticipation des coupures
+    if (fullReply.length > 280) {
+      incompleteResponses[sessionId] = fullReply.slice(280); // Stocker la partie incomplète
+      fullReply = fullReply.slice(0, 280) + "<br><br>🔹 Souhaitez-vous que je développe ?";
+    } else {
+      incompleteResponses[sessionId] = ""; // Réinitialiser si réponse complète
+    }
 
     console.log("✅ Réponse générée :", fullReply);
     res.json({ reply: fullReply });
@@ -109,6 +103,7 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`🌍 Serveur NORR en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
