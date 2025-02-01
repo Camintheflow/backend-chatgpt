@@ -18,18 +18,22 @@ const openai = new OpenAIApi(configuration);
 app.use(cors());
 app.use(bodyParser.json());
 
-// Vérifier si une question concerne un enfant sans âge précisé
-function needsAgeClarification(userMessage) {
+// Vérification de l'âge de l'enfant avant de répondre
+function needsAgeClarification(userMessage, conversationHistory) {
   const childKeywords = ["mon enfant", "ma fille", "mon fils", "mon bébé", "il", "elle"];
-  return childKeywords.some((word) => userMessage.toLowerCase().includes(word));
+  const alreadyMentionedAge = conversationHistory.some((msg) =>
+    msg.content.match(/\d+\s?(an|ans)/)
+  );
+
+  return childKeywords.some((word) => userMessage.toLowerCase().includes(word)) && !alreadyMentionedAge;
 }
 
-// Détecter si l'utilisateur parle d'un enfant et identifier son genre
+// Détection du genre de l'enfant
 function detectChildGender(userMessage) {
   const femaleKeywords = ["elle", "ma fille", "ma petite", "ma princesse"];
   const maleKeywords = ["il", "mon fils", "mon petit", "mon garçon"];
 
-  let gender = "neutre"; // Par défaut, si rien n'est précisé
+  let gender = "neutre";
 
   if (femaleKeywords.some((word) => userMessage.toLowerCase().includes(word))) {
     gender = "fille";
@@ -40,13 +44,21 @@ function detectChildGender(userMessage) {
   return gender;
 }
 
-// Liste de suggestions concrètes que NORR peut ajouter à la fin
-const suggestions = [
-  "Vous pourriez essayer cela sur plusieurs jours et voir comment il/elle réagit.",
-  "Pourquoi ne pas tester cette approche lors de votre prochaine discussion ?",
-  "Vous pouvez aussi observer s'il/elle réagit mieux dans un autre contexte.",
-  "N'hésitez pas à lui montrer un exemple concret pour l’aider à mieux comprendre.",
-  "Essayez cette méthode et ajustez en fonction de son ressenti.",
+// Suggestions et approfondissements pertinents
+const deepeningQuestions = [
+  "Avez-vous remarqué un élément déclencheur particulier dans ce comportement ?",
+  "Comment votre enfant réagit-il quand vous abordez ce sujet avec lui/elle ?",
+  "Avez-vous essayé d’adopter une approche différente, et si oui, laquelle ?",
+  "Comment gérez-vous cette situation actuellement et qu'est-ce qui fonctionne le mieux ?",
+  "Qu'est-ce qui semble le plus difficile pour vous dans cette situation ?",
+];
+
+const practicalSolutions = [
+  "Une approche douce mais ferme peut aider votre enfant à mieux gérer ses émotions.",
+  "Vous pouvez lui proposer une alternative pour exprimer ce qu’il/elle ressent d’une autre manière.",
+  "Essayez d’expliquer calmement pourquoi son comportement pose problème et proposez-lui une solution.",
+  "Encouragez-le/la à verbaliser ses émotions plutôt que de les manifester par des comportements difficiles.",
+  "Vous pouvez également mettre en place un rituel ou un outil de gestion des émotions pour l’aider.",
 ];
 
 // Route GET pour vérifier que le serveur fonctionne
@@ -65,8 +77,8 @@ app.post("/api/chat", async (req, res) => {
   const userMessage = req.body.conversation.slice(-1)[0].content;
   const gender = detectChildGender(userMessage);
 
-  // Vérification de l'âge de l'enfant avant de répondre
-  if (needsAgeClarification(userMessage) && !req.body.age) {
+  // Vérification si l'âge de l'enfant a été mentionné
+  if (needsAgeClarification(userMessage, req.body.conversation)) {
     return res.json({ reply: "Quel est l'âge de votre enfant pour que je puisse répondre plus précisément ?" });
   }
 
@@ -75,16 +87,18 @@ app.post("/api/chat", async (req, res) => {
       {
         role: "system",
         content: `
-          Tu es NORR, un assistant parental chaleureux et compatissant.
-          Ta mission est d'aider les parents avec bienveillance en intégrant des pratiques positives et spirituelles.
+          Tu es NORR, un assistant parental bienveillant et compatissant.
+          Tu aides les parents à gérer des situations familiales en s’appuyant sur des approches de parentalité positive.
           Tu t'appuies sur les travaux d'Isabelle Filiozat, Emmanuelle Piquet et Lulumineuse.
-          ✅ Tes réponses doivent être courtes, directes et compatissantes (maximum 300 tokens).
-          ✅ Si la réponse est trop longue, termine une idée complète avant de proposer une suggestion supplémentaire.
-          ✅ Si l'enfant est un garçon, utilise "il". Si c'est une fille, utilise "elle". Si le genre est inconnu, utilise "votre enfant".
-          ✅ Propose une solution concrète en fin de réponse, en sélectionnant une suggestion appropriée.
+          ✅ Tes réponses doivent être claires, naturelles et fluides, sans donner l'impression d'une dissertation.
+          ✅ Évite de poser des questions inutiles, propose plutôt des solutions pertinentes et des suggestions adaptées.
+          ✅ Si la conversation nécessite plus de détails, pose une question en lien direct avec la situation.
+          ✅ Ne demande pas si l'utilisateur veut que tu continues : ajoute une question d'approfondissement pertinente ou une suggestion utile à la fin.
+          ✅ Si l’enfant est un garçon, utilise "il". Si c'est une fille, utilise "elle". Si le genre est inconnu, utilise "votre enfant".
+          ✅ Mets en forme tes réponses avec des titres en gras, des emojis numérotés pour les points clés, et des sauts de ligne pour une meilleure lisibilité.
         `,
       },
-      { role: "user", content: `L'enfant est un(e) ${gender}` }, // Ajoute l'information du genre
+      { role: "user", content: `L'enfant est un(e) ${gender}` },
       ...req.body.conversation,
     ];
 
@@ -96,12 +110,21 @@ app.post("/api/chat", async (req, res) => {
 
     let fullReply = completion.data.choices[0].message.content;
 
-    // Sélectionner une suggestion pertinente
-    const suggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
+    // Appliquer la mise en forme
+    fullReply = fullReply
+      .replace(/(\d+)\./g, (match, number) => `\n\n${["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"][number - 1]} `) // Emoji numérotés
+      .replace(/\*\*(.*?)\*\*/g, "**$1**") // Garder le gras
+      .replace(/\n/g, "\n\n"); // Ajouter des sauts de ligne pour l’aération
 
-    // Ajouter la suggestion si la réponse est déjà bien développée
+    // Sélectionner une question d'approfondissement pertinente
+    const question = deepeningQuestions[Math.floor(Math.random() * deepeningQuestions.length)];
+    const solution = practicalSolutions[Math.floor(Math.random() * practicalSolutions.length)];
+
+    // Ajouter une question ou une solution pour approfondir
     if (fullReply.length > 250) {
-      fullReply += `\n\n💡 ${suggestion}`;
+      fullReply += `\n\n💡 ${solution}`;
+    } else {
+      fullReply += `\n\n🔍 ${question}`;
     }
 
     console.log("✅ Réponse générée :", fullReply);
@@ -117,6 +140,7 @@ app.post("/api/chat", async (req, res) => {
 app.listen(port, () => {
   console.log(`🌍 Serveur NORR en cours d'exécution sur http://localhost:${port}`);
 });
+
 
 
 
