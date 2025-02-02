@@ -95,6 +95,9 @@ app.post("/api/chat", async (req, res) => {
           ✅ **Proposer une solution pertinente** ou **une question d'approfondissement utile**.
           ✅ **Si l’enfant est un garçon, utiliser "il". Si c’est une fille, utiliser "elle"**.
           ✅ **Garder une mise en forme claire** avec **titres en gras**, **numéros emoji** et **sauts de ligne**.
+	  ✅Ne fais jamais d'hypothèse sur les émotions de l'utilisateur, sauf s'il les mentionne explicitement.
+          ✅Évite les longues explications didactiques, donne des conseils concrets et pratiques.
+          ✅Sépare bien les différentes parties de ta réponse avec des paragraphes clairs.
         `,
       },
       { role: "user", content: `L'enfant est un(e) ${gender}` },
